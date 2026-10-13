@@ -11,9 +11,12 @@ import {
   Table2,
   CalendarDays,
   Sparkles,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { FilterBar } from "@/components/dashboard/FilterBar";
+import { Button } from "@/components/ui/button";
 import { KpiGrid } from "@/components/dashboard/KpiCards";
 import { SectionCard } from "@/components/dashboard/SectionCard";
 import {
@@ -27,6 +30,7 @@ import { OutletHeatmap } from "@/components/dashboard/Heatmap";
 import { OutletRankingTable } from "@/components/dashboard/OutletRankingTable";
 import { ItemRankingTable } from "@/components/dashboard/ItemRankingTable";
 import { InsightPanel } from "@/components/dashboard/InsightPanel";
+import { SheetManagerModal } from "@/components/dashboard/SheetManagerModal";
 import { useDashboardStore, computePresetRange } from "@/lib/dashboard/store";
 import {
   applyFilter,
@@ -41,6 +45,7 @@ import {
   formatDateLong,
 } from "@/lib/dashboard/aggregate";
 import type { DashboardData, HeatmapCell } from "@/lib/types";
+import type { SheetSourceDTO } from "@/lib/sheet-sources";
 
 export default function Home() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -50,8 +55,28 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
+  // Sheet sources state
+  const [sources, setSources] = useState<SheetSourceDTO[]>([]);
+  const [sourcesLoading, setSourcesLoading] = useState(false);
+  const [managerOpen, setManagerOpen] = useState(false);
+
   // Apply initial preset based on actual data range
   const dataRange = data?.meta.dateRange ?? { start: "", end: "" };
+  const activeSheetId = data?.meta.sheetSourceId ?? null;
+
+  // ----- Sheet sources fetching -----
+  const fetchSources = useCallback(async () => {
+    setSourcesLoading(true);
+    try {
+      const res = await fetch("/api/sheet-sources", { cache: "no-store" });
+      const data = await res.json();
+      setSources(data.sources || []);
+    } catch {
+      // Silent - sources are best-effort
+    } finally {
+      setSourcesLoading(false);
+    }
+  }, []);
 
   // ----- Data fetching -----
   const fetchData = useCallback(async (forceRefresh = false) => {
@@ -63,7 +88,9 @@ export default function Home() {
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody?.error || `HTTP ${res.status}`);
+        const errMsg = errBody?.error || `HTTP ${res.status}`;
+        const errLabel = errBody?.sheetLabel ? ` (sheet: ${errBody.sheetLabel})` : "";
+        throw new Error(`${errMsg}${errLabel}`);
       }
       const json: DashboardData & { warning?: string } = await res.json();
       if (json.warning) setWarning(json.warning);
@@ -79,10 +106,11 @@ export default function Home() {
 
   // Initial load + auto-refresh every 5 minutes
   useEffect(() => {
+    fetchSources();
     fetchData(false);
     const t = setInterval(() => fetchData(false), 5 * 60 * 1000);
     return () => clearInterval(t);
-  }, [fetchData]);
+  }, [fetchData, fetchSources]);
 
   // ----- Initialize preset when data first arrives -----
   const store = useDashboardStore();
@@ -96,6 +124,38 @@ export default function Home() {
       setInitialized(true);
     }
   }, [data, dataRange, initialized, store]);
+
+  // ----- Activate a different sheet (called from SheetSelector) -----
+  const handleActivateSheet = useCallback(async (id: string) => {
+    const DEFAULT_PIN = "kacc2026";
+    try {
+      const res = await fetch(
+        `/api/sheet-sources/activate?id=${encodeURIComponent(id)}`,
+        {
+          method: "POST",
+          headers: { "X-Admin-PIN": DEFAULT_PIN },
+        },
+      );
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || `HTTP ${res.status}`);
+      }
+      // Reset the preset initialization so it re-runs for new sheet's date range
+      setInitialized(false);
+      // Reset insight (different sheet = different narrative)
+      store.setInsight({
+        narrative: "",
+        highlights: [],
+        alerts: [],
+        generatedAt: "",
+      });
+      // Refetch sheet data with force refresh to load new sheet's records
+      await Promise.all([fetchSources(), fetchData(true)]);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      setError(`Gagal ganti sheet: ${msg}`);
+    }
+  }, [fetchSources, fetchData, store]);
 
   // ----- Filter state -----
   const filterState = useMemo(
@@ -255,18 +315,60 @@ export default function Home() {
 
   // ----- Error state -----
   if (error && !data) {
+    // Find the active sheet (if any) to show context
+    const activeSheet = sources.find((s) => s.isActive);
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
-        <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-6 text-center">
-          <p className="mb-2 text-sm font-semibold text-red-400">Gagal memuat data</p>
-          <p className="text-xs text-muted-foreground">{error}</p>
+        <div className="max-w-md rounded-lg border border-red-500/30 bg-red-500/5 p-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+            <div className="flex-1">
+              <p className="mb-1 text-sm font-semibold text-red-400">
+                Gagal memuat data
+              </p>
+              <p className="mb-3 text-xs text-muted-foreground">{error}</p>
+              {activeSheet && (
+                <div className="rounded-md bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+                  Sheet aktif: <strong>{activeSheet.label}</strong>
+                  <br />
+                  Pastikan sheet ini:
+                  <ul className="ml-4 mt-1 list-disc space-y-0.5">
+                    <li>Sudah di-share ke &quot;Anyone with link can view&quot;</li>
+                    <li>Punya header kolom yang sama dengan sheet Okt</li>
+                    <li>Tidak kosong (ada baris data)</li>
+                    <li>URL benar (cek sheetId &amp; gid)</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <button
-          className="rounded-lg bg-emerald-500/15 px-4 py-2 text-xs text-emerald-300 hover:bg-emerald-500/25"
-          onClick={() => fetchData(true)}
-        >
-          Coba lagi
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="rounded-lg bg-emerald-500/15 px-4 py-2 text-xs text-emerald-300 hover:bg-emerald-500/25"
+            onClick={() => fetchData(true)}
+          >
+            Coba lagi
+          </button>
+          <button
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs text-foreground hover:bg-white/10"
+            onClick={() => setManagerOpen(true)}
+          >
+            Buka Kelola Sheet
+          </button>
+        </div>
+        {/* Sheet Manager Modal (also rendered here so user can switch back even in error state) */}
+        <SheetManagerModal
+          open={managerOpen}
+          onOpenChange={setManagerOpen}
+          sources={sources}
+          activeId={activeSheetId}
+          onChange={async () => {
+            await fetchSources();
+            await fetchData(true);
+            setError(null);
+          }}
+        />
       </div>
     );
   }
@@ -292,7 +394,49 @@ export default function Home() {
         onRefresh={() => fetchData(true)}
         onExportPdf={handleExportPdf}
         exporting={exporting}
+        sources={sources}
+        activeSheetId={activeSheetId}
+        sourcesLoading={sourcesLoading}
+        onActivateSheet={handleActivateSheet}
+        onOpenSheetManager={() => setManagerOpen(true)}
       />
+
+      {/* Error banner (visible even when stale data is shown) */}
+      {error && data && (
+        <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-3 lg:px-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+            <div className="flex-1">
+              <div className="text-xs font-semibold text-red-300">
+                Gagal fetch data sheet aktif. Menampilkan data lama (stale).
+              </div>
+              <div className="mt-0.5 text-[11px] text-red-400/80">
+                {error}
+              </div>
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                Coba klik tombol Refresh, atau periksa sheet aktif via{" "}
+                <button
+                  onClick={() => setManagerOpen(true)}
+                  className="text-emerald-400 underline"
+                >
+                  Kelola Sheet
+                </button>
+                . Pastikan sheet Google Sheets-nya public (Anyone with link
+                can view) dan header kolom sama dengan sheet Okt.
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 gap-1 border-red-500/30 bg-red-500/10 text-[10px] text-red-300 hover:bg-red-500/20"
+              onClick={() => setError(null)}
+            >
+              <X className="h-3 w-3" />
+              Tutup
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col space-y-4 p-4 lg:p-6">
         {/* Filter bar */}
@@ -426,6 +570,20 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      {/* Sheet Manager Modal (multi-month / add / delete) */}
+      <SheetManagerModal
+        open={managerOpen}
+        onOpenChange={setManagerOpen}
+        sources={sources}
+        activeId={activeSheetId}
+        onChange={async () => {
+          await fetchSources();
+          // If user activated a different sheet via the modal, refetch data too
+          await fetchData(true);
+          setInitialized(false);
+        }}
+      />
     </main>
   );
 }

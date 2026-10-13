@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -29,4 +26,35 @@ model Post {
   authorId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// Daftar sumber Google Sheets yang dipakai dashboard.
+/// Satu sheet = satu periode (biasanya 1 bulan).
+/// Hanya satu sheet yang isActive=true (yang sedang ditampilkan).
+model SheetSource {
+  /// cuid stable identifier
+  id          String   @id @default(cuid())
+  /// Label yang ditampilkan ke user, e.g. "Oktober 2026"
+  label       String
+  /// Google Sheets ID (dari URL)
+  sheetId     String
+  /// Sheet/tab GID (dari URL fragment)
+  gid         String
+  /// True jika sedang ditampilkan di dashboard
+  isActive    Boolean  @default(false)
+  /// Optional catatan admin
+  note        String?
+  /// Range tanggal awal data (YYYY-MM-DD), diisi otomatis saat fetch pertama
+  dataStart   String?
+  /// Range tanggal akhir data (YYYY-MM-DD)
+  dataEnd     String?
+  /// Jumlah baris terakhir kali di-fetch
+  rowCount    Int?
+  /// Kapan terakhir berhasil di-fetch
+  lastFetchedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([createdAt])
 }

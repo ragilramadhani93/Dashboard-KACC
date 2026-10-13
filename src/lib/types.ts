@@ -60,6 +60,8 @@ export interface DashboardMeta {
   itemCategories: string[];
   source: string;
   cachedAt: string;
+  /** ID of the active SheetSource (so client knows which sheet is being viewed). */
+  sheetSourceId?: string | null;
 }
 
 export interface DashboardData {

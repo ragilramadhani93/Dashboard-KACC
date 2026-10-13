@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { formatDateLong } from "@/lib/dashboard/aggregate";
 import type { DashboardMeta } from "@/lib/types";
+import { SheetSelector } from "@/components/dashboard/SheetSelector";
+import type { SheetSourceDTO } from "@/lib/sheet-sources";
 
 interface DashboardHeaderProps {
   meta: DashboardMeta | null;
@@ -15,6 +17,12 @@ interface DashboardHeaderProps {
   onRefresh: () => void;
   onExportPdf: () => void;
   exporting: boolean;
+  // Sheet sources props
+  sources: SheetSourceDTO[];
+  activeSheetId: string | null;
+  sourcesLoading: boolean;
+  onActivateSheet: (id: string) => Promise<void>;
+  onOpenSheetManager: () => void;
 }
 
 export function DashboardHeader({
@@ -26,6 +34,11 @@ export function DashboardHeader({
   onRefresh,
   onExportPdf,
   exporting,
+  sources,
+  activeSheetId,
+  sourcesLoading,
+  onActivateSheet,
+  onOpenSheetManager,
 }: DashboardHeaderProps) {
   const [now, setNow] = useState<Date | null>(null);
 
@@ -60,7 +73,16 @@ export function DashboardHeader({
             </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {/* Sheet selector */}
+            <SheetSelector
+              sources={sources}
+              activeId={activeSheetId}
+              loading={sourcesLoading}
+              onActivate={onActivateSheet}
+              onOpenManager={onOpenSheetManager}
+            />
+
             {/* Status indicator */}
             <div className="hidden md:flex items-center gap-2 rounded-lg border border-white/10 bg-card/60 px-2.5 py-1.5">
               <div className="flex items-center gap-1.5">
