@@ -1,0 +1,431 @@
+"use client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  TrendingUp,
+  Store,
+  CreditCard,
+  Clock,
+  Coffee,
+  Package,
+  BarChart3,
+  Table2,
+  CalendarDays,
+  Sparkles,
+} from "lucide-react";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { FilterBar } from "@/components/dashboard/FilterBar";
+import { KpiGrid } from "@/components/dashboard/KpiCards";
+import { SectionCard } from "@/components/dashboard/SectionCard";
+import {
+  RevenueTrendChart,
+  TopOutletsChart,
+  PaymentMixChart,
+  HourlyChart,
+  TopItemsChart,
+} from "@/components/dashboard/Charts";
+import { OutletHeatmap } from "@/components/dashboard/Heatmap";
+import { OutletRankingTable } from "@/components/dashboard/OutletRankingTable";
+import { ItemRankingTable } from "@/components/dashboard/ItemRankingTable";
+import { InsightPanel } from "@/components/dashboard/InsightPanel";
+import { useDashboardStore, computePresetRange } from "@/lib/dashboard/store";
+import {
+  applyFilter,
+  buildDateList,
+  computeHeatmap,
+  computeDailyTrend,
+  computeHourAgg,
+  computeItemAgg,
+  computeKpi,
+  computeOutletAgg,
+  computePaymentAgg,
+  formatDateLong,
+} from "@/lib/dashboard/aggregate";
+import type { DashboardData, HeatmapCell } from "@/lib/types";
+
+export default function Home() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+
+  // Apply initial preset based on actual data range
+  const dataRange = data?.meta.dateRange ?? { start: "", end: "" };
+
+  // ----- Data fetching -----
+  const fetchData = useCallback(async (forceRefresh = false) => {
+    setRefreshing(true);
+    setError(null);
+    setWarning(null);
+    try {
+      const url = forceRefresh ? "/api/sheets?refresh=1" : "/api/sheets";
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || `HTTP ${res.status}`);
+      }
+      const json: DashboardData & { warning?: string } = await res.json();
+      if (json.warning) setWarning(json.warning);
+      setData(json);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      setError(msg);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  // Initial load + auto-refresh every 5 minutes
+  useEffect(() => {
+    fetchData(false);
+    const t = setInterval(() => fetchData(false), 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [fetchData]);
+
+  // ----- Initialize preset when data first arrives -----
+  const store = useDashboardStore();
+  const { dateStart, dateEnd, compareEnabled, prevDateStart, prevDateEnd } = store;
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (data && dataRange.start && dataRange.end && !initialized) {
+      // Use the actual data end as "today" reference (since sheet may lag a day)
+      store.setPreset("last7", dataRange);
+      setInitialized(true);
+    }
+  }, [data, dataRange, initialized, store]);
+
+  // ----- Filter state -----
+  const filterState = useMemo(
+    () => ({
+      dateStart,
+      dateEnd,
+      outlets: store.outlets,
+      payments: store.payments,
+      itemCategories: store.itemCategories,
+      menuTypes: store.menuTypes,
+    }),
+    [dateStart, dateEnd, store.outlets, store.payments, store.itemCategories, store.menuTypes],
+  );
+
+  // ----- Apply filters & aggregate -----
+  const allRecords = data?.records ?? [];
+  const filteredRecords = useMemo(
+    () => applyFilter(allRecords, filterState),
+    [allRecords, filterState],
+  );
+
+  const kpi = useMemo(() => computeKpi(filteredRecords), [filteredRecords]);
+  const dailyTrend = useMemo(() => computeDailyTrend(filteredRecords), [filteredRecords]);
+  const outletAgg = useMemo(() => computeOutletAgg(filteredRecords), [filteredRecords]);
+  const itemAgg = useMemo(() => computeItemAgg(filteredRecords), [filteredRecords]);
+  const paymentAgg = useMemo(() => computePaymentAgg(filteredRecords), [filteredRecords]);
+  const hourAgg = useMemo(() => computeHourAgg(filteredRecords), [filteredRecords]);
+
+  // Previous period for compare mode
+  const prevFilterState = useMemo(() => {
+    if (!compareEnabled || !prevDateStart || !prevDateEnd) return null;
+    return {
+      dateStart: prevDateStart,
+      dateEnd: prevDateEnd,
+      outlets: store.outlets,
+      payments: store.payments,
+      itemCategories: store.itemCategories,
+      menuTypes: store.menuTypes,
+    };
+  }, [
+    compareEnabled,
+    prevDateStart,
+    prevDateEnd,
+    store.outlets,
+    store.payments,
+    store.itemCategories,
+    store.menuTypes,
+  ]);
+
+  const prevRecords = useMemo(
+    () => (prevFilterState ? applyFilter(allRecords, prevFilterState) : []),
+    [allRecords, prevFilterState],
+  );
+  const prevKpi = useMemo(() => computeKpi(prevRecords), [prevRecords]);
+  const prevDailyTrend = useMemo(
+    () => (compareEnabled ? computeDailyTrend(prevRecords) : null),
+    [compareEnabled, prevRecords],
+  );
+
+  // Heatmap data
+  const topOutletNames = useMemo(
+    () => outletAgg.slice(0, 15).map((o) => o.outlet),
+    [outletAgg],
+  );
+  const dateList = useMemo(
+    () => buildDateList(dateStart, dateEnd),
+    [dateStart, dateEnd],
+  );
+  const heatmap: HeatmapCell[][] = useMemo(
+    () => computeHeatmap(filteredRecords, topOutletNames, dateList),
+    [filteredRecords, topOutletNames, dateList],
+  );
+
+  // ----- Export PDF handler -----
+  const handleExportPdf = useCallback(async () => {
+    if (!data) return;
+    setExporting(true);
+    try {
+      const insight = {
+        narrative: store.insightNarrative,
+        highlights: store.insightHighlights,
+        alerts: store.insightAlerts,
+      };
+      const payload = {
+        meta: {
+          ...data.meta,
+          dateRange: data.meta.dateRange,
+        },
+        filters: {
+          dateRange: { start: dateStart, end: dateEnd },
+          outlets: store.outlets,
+          payments: store.payments,
+          itemCategories: store.itemCategories,
+        },
+        kpi,
+        prevKpi: compareEnabled ? prevKpi : null,
+        dailyTrend,
+        topOutlets: outletAgg.slice(0, 10),
+        topItems: itemAgg.slice(0, 10),
+        paymentMix: paymentAgg,
+        hourly: hourAgg,
+        insight,
+      };
+      const res = await fetch("/api/export-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `kacc-report-${dateStart}_to_${dateEnd}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      setError(`PDF export failed: ${msg}`);
+    } finally {
+      setExporting(false);
+    }
+  }, [
+    data,
+    store.insightNarrative,
+    store.insightHighlights,
+    store.insightAlerts,
+    store.outlets,
+    store.payments,
+    store.itemCategories,
+    dateStart,
+    dateEnd,
+    kpi,
+    prevKpi,
+    compareEnabled,
+    dailyTrend,
+    outletAgg,
+    itemAgg,
+    paymentAgg,
+    hourAgg,
+  ]);
+
+  // ----- Loading state -----
+  if (loading && !data) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-400/30 border-t-emerald-400" />
+        <p className="text-sm text-muted-foreground">Memuat data dari Google Sheets...</p>
+      </div>
+    );
+  }
+
+  // ----- Error state -----
+  if (error && !data) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-6 text-center">
+          <p className="mb-2 text-sm font-semibold text-red-400">Gagal memuat data</p>
+          <p className="text-xs text-muted-foreground">{error}</p>
+        </div>
+        <button
+          className="rounded-lg bg-emerald-500/15 px-4 py-2 text-xs text-emerald-300 hover:bg-emerald-500/25"
+          onClick={() => fetchData(true)}
+        >
+          Coba lagi
+        </button>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  // Build filter state for insight panel
+  const insightFilterState = {
+    dateRange: { start: dateStart, end: dateEnd },
+    outlets: store.outlets,
+    payments: store.payments,
+    itemCategories: store.itemCategories,
+  };
+
+  return (
+    <main className="flex min-h-screen flex-col bg-background text-foreground">
+      <DashboardHeader
+        meta={data.meta}
+        loading={loading}
+        refreshing={refreshing}
+        warning={warning}
+        error={error}
+        onRefresh={() => fetchData(true)}
+        onExportPdf={handleExportPdf}
+        exporting={exporting}
+      />
+
+      <div className="flex flex-1 flex-col space-y-4 p-4 lg:p-6">
+        {/* Filter bar */}
+        <FilterBar
+          dataRange={dataRange}
+          outlets={data.meta.outlets}
+          paymentMethods={data.meta.paymentMethods}
+          itemCategories={data.meta.itemCategories}
+        />
+
+        {/* KPI grid */}
+        <KpiGrid kpi={kpi} prevKpi={compareEnabled ? prevKpi : null} hasPrev={compareEnabled} />
+
+        {/* Revenue trend + Insight panel */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <SectionCard
+            title="Tren Revenue Harian"
+            subtitle={
+              compareEnabled
+                ? `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)} (vs prev ${formatDateLong(prevDateStart)} → ${formatDateLong(prevDateEnd)})`
+                : `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)}`
+            }
+            icon={<TrendingUp className="h-4 w-4 text-emerald-300" />}
+            className="lg:col-span-2"
+          >
+            <RevenueTrendChart
+              current={dailyTrend}
+              previous={prevDailyTrend}
+              compareEnabled={compareEnabled}
+            />
+          </SectionCard>
+
+          <InsightPanel
+            meta={data.meta}
+            kpi={kpi}
+            prevKpi={prevKpi}
+            hasPrev={compareEnabled}
+            topOutlets={outletAgg.slice(0, 5)}
+            topItems={itemAgg.slice(0, 5)}
+            paymentMix={paymentAgg}
+            dailyTrend={dailyTrend}
+            peakHour={kpi.peakHour}
+            filterState={insightFilterState}
+          />
+        </div>
+
+        {/* Top outlets + Payment mix */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <SectionCard
+            title="Top 10 Outlet"
+            subtitle="Berdasarkan revenue"
+            icon={<Store className="h-4 w-4 text-cyan-300" />}
+            className="lg:col-span-2"
+          >
+            <TopOutletsChart data={outletAgg} />
+          </SectionCard>
+
+          <SectionCard
+            title="Mix Pembayaran"
+            subtitle="Share revenue per metode"
+            icon={<CreditCard className="h-4 w-4 text-amber-300" />}
+          >
+            <PaymentMixChart data={paymentAgg} />
+          </SectionCard>
+        </div>
+
+        {/* Hourly + Top items */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <SectionCard
+            title="Distribusi Jam Operasional"
+            subtitle={`Jam puncak: ${String(kpi.peakHour).padStart(2, "0")}:00 WIB`}
+            icon={<Clock className="h-4 w-4 text-purple-300" />}
+            className="lg:col-span-2"
+          >
+            <HourlyChart data={hourAgg} peakHour={kpi.peakHour} />
+          </SectionCard>
+
+          <SectionCard
+            title="Top 10 Item"
+            subtitle="Berdasarkan qty terjual"
+            icon={<Coffee className="h-4 w-4 text-pink-300" />}
+          >
+            <TopItemsChart data={itemAgg} />
+          </SectionCard>
+        </div>
+
+        {/* Heatmap */}
+        <SectionCard
+          title="Heatmap Outlet x Tanggal"
+          subtitle="Intensitas revenue per outlet per hari - merah di kolom Total = alert"
+          icon={<BarChart3 className="h-4 w-4 text-emerald-300" />}
+        >
+          <OutletHeatmap data={heatmap} dateList={dateList} />
+        </SectionCard>
+
+        {/* Outlet ranking + Item ranking */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <SectionCard
+            title="Ranking Outlet"
+            subtitle="Klik header kolom untuk sort"
+            icon={<Table2 className="h-4 w-4 text-cyan-300" />}
+          >
+            <OutletRankingTable data={outletAgg} />
+          </SectionCard>
+
+          <SectionCard
+            title="Ranking Item Menu"
+            subtitle="Sortable by qty / revenue / transaksi"
+            icon={<Package className="h-4 w-4 text-pink-300" />}
+          >
+            <ItemRankingTable data={itemAgg} />
+          </SectionCard>
+        </div>
+
+        {/* Footer */}
+        <footer className="mt-auto py-6 text-center text-[10px] text-muted-foreground">
+          <div>
+            KACC Dashboard Monitoring v1.0 - Data di-refresh otomatis tiap 5 menit dari Google Sheets
+          </div>
+          <div className="mt-1">
+            Source:{" "}
+            <a
+              href={data.meta.source}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400 hover:underline"
+            >
+              Google Sheets
+            </a>{" "}
+            • Last updated: {data.meta.lastUpdated ? new Date(data.meta.lastUpdated).toLocaleString("id-ID") : "-"}
+          </div>
+        </footer>
+      </div>
+    </main>
+  );
+}
