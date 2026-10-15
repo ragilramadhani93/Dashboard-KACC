@@ -31,6 +31,7 @@ import { OutletRankingTable } from "@/components/dashboard/OutletRankingTable";
 import { ItemRankingTable } from "@/components/dashboard/ItemRankingTable";
 import { InsightPanel } from "@/components/dashboard/InsightPanel";
 import { SheetManagerModal } from "@/components/dashboard/SheetManagerModal";
+import { HourlyDrilldownDialog } from "@/components/dashboard/HourlyDrilldownDialog";
 import { useDashboardStore, computePresetRange } from "@/lib/dashboard/store";
 import {
   applyFilter,
@@ -59,6 +60,9 @@ export default function Home() {
   const [sources, setSources] = useState<SheetSourceDTO[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
+
+  // Hourly drill-down state
+  const [drilldownHour, setDrilldownHour] = useState<number | null>(null);
 
   // Apply initial preset based on actual data range
   const dataRange = data?.meta.dateRange ?? { start: "", end: "" };
@@ -507,11 +511,15 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <SectionCard
             title="Distribusi Jam Operasional"
-            subtitle={`Jam puncak: ${String(kpi.peakHour).padStart(2, "0")}:00 WIB`}
+            subtitle={`Jam puncak: ${String(kpi.peakHour).padStart(2, "0")}:00 WIB - klik bar untuk lihat menu terjual di jam itu`}
             icon={<Clock className="h-4 w-4 text-purple-300" />}
             className="lg:col-span-2"
           >
-            <HourlyChart data={hourAgg} peakHour={kpi.peakHour} />
+            <HourlyChart
+              data={hourAgg}
+              peakHour={kpi.peakHour}
+              onBarClick={(hour) => setDrilldownHour(hour)}
+            />
           </SectionCard>
 
           <SectionCard
@@ -583,6 +591,15 @@ export default function Home() {
           await fetchData(true);
           setInitialized(false);
         }}
+      />
+
+      {/* Hourly drill-down dialog - shows items/outlets/payments for clicked hour */}
+      <HourlyDrilldownDialog
+        open={drilldownHour !== null}
+        onOpenChange={(open) => !open && setDrilldownHour(null)}
+        hour={drilldownHour}
+        records={filteredRecords}
+        dateRange={{ start: dateStart, end: dateEnd }}
       />
     </main>
   );

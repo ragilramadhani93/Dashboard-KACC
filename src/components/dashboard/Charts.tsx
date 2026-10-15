@@ -299,14 +299,15 @@ export function PaymentMixChart({ data }: PaymentPieProps) {
   );
 }
 
-// ----- Hourly Distribution (bar) -----
+// ----- Hourly Distribution (bar) - clickable -----
 interface HourlyChartProps {
   data: HourAgg[];
   peakHour: number;
   height?: number;
+  onBarClick?: (hour: number) => void;
 }
 
-export function HourlyChart({ data, peakHour, height = 320 }: HourlyChartProps) {
+export function HourlyChart({ data, peakHour, height = 320, onBarClick }: HourlyChartProps) {
   // Filter to only hours with data (typically 5-22)
   const activeData = data.filter((d) => d.revenue > 0 || d.transactions > 0);
   const display = activeData.length > 0 ? activeData : data;
@@ -317,7 +318,10 @@ export function HourlyChart({ data, peakHour, height = 320 }: HourlyChartProps) 
       className="w-full"
       style={{ height }}
     >
-      <BarChart data={display} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+      <BarChart
+        data={display}
+        margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
         <XAxis
           dataKey="hour"
@@ -346,13 +350,30 @@ export function HourlyChart({ data, peakHour, height = 320 }: HourlyChartProps) 
                       {h === peakHour && " (PUNCAK)"}
                     </span>
                     <span className="font-bold tabular-nums">{formatRupiah(Number(value), false)}</span>
+                    {onBarClick && (
+                      <span className="text-[10px] text-purple-300">
+                        Klik untuk lihat detail menu →
+                      </span>
+                    )}
                   </div>
                 );
               }}
             />
           }
         />
-        <Bar dataKey="revenue" radius={[4, 4, 0, 0]} maxBarSize={28}>
+        <Bar
+          dataKey="revenue"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={28}
+          cursor={onBarClick ? "pointer" : "default"}
+          onClick={(data: unknown) => {
+            if (!onBarClick) return;
+            const payload = (data as { payload?: { hour?: number } })?.payload;
+            if (payload && typeof payload.hour === "number") {
+              onBarClick(payload.hour);
+            }
+          }}
+        >
           {display.map((d, i) => (
             <Cell
               key={`cell-${i}`}

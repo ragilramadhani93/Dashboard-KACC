@@ -7,7 +7,6 @@ import {
   SheetTitle,
   SheetDescription,
   SheetFooter,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import {
   Dialog,
@@ -26,6 +25,10 @@ import {
   ShieldCheck,
   Calendar,
   Hash,
+  FlaskConical,
+  XCircle,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,17 +37,29 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { formatDateLong } from "@/lib/dashboard/aggregate";
-import type { SheetSourceDTO } from "@/lib/sheet-sources";
+import { parseSheetUrl, type SheetSourceDTO } from "@/lib/sheet-sources";
 
 interface SheetManagerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sources: SheetSourceDTO[];
   activeId: string | null;
-  onChange: () => void; // refetch callback
+  onChange: () => void;
 }
 
 const DEFAULT_PIN = "kacc2026";
+
+interface TestResult {
+  ok: boolean;
+  error?: string;
+  message?: string;
+  parsedSheetId?: string | null;
+  parsedGid?: string | null;
+  rowCount?: number;
+  fetchUrl?: string;
+  actualHeaders?: string[];
+  missingHeaders?: string[];
+}
 
 export function SheetManagerModal({
   open,
@@ -63,11 +78,28 @@ export function SheetManagerModal({
   const [note, setNote] = useState("");
   const [adding, setAdding] = useState(false);
 
+  // Advanced mode (manual sheetId/gid override)
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [manualSheetId, setManualSheetId] = useState("");
+  const [manualGid, setManualGid] = useState("");
+
+  // Test fetch state
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<SheetSourceDTO | null>(null);
 
   // Activate state
   const [activatingId, setActivatingId] = useState<string | null>(null);
+
+  // Live parse URL preview
+  const parsedUrl = url.trim() ? parseSheetUrl(url.trim()) : null;
+
+  // Reset test result when URL changes
+  useEffect(() => {
+    setTestResult(null);
+  }, [url, manualSheetId, manualGid]);
 
   // Verify PIN
   function verifyPin() {
@@ -82,21 +114,97 @@ export function SheetManagerModal({
     }
   }
 
-  async function handleAdd() {
-    if (!label.trim() || !url.trim()) {
+  // Test fetch the sheet URL
+  async function handleTestFetch() {
+    if (!url.trim() && !manualSheetId.trim()) {
       toast({
-        title: "Lengkapi form",
-        description: "Label dan URL Google Sheets wajib diisi.",
+        title: "Isi URL dulu",
+        description: "Masukkan URL Google Sheets atau manual sheetId untuk di-test.",
         variant: "destructive",
       });
       return;
     }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const payload = manualSheetId.trim()
+        ? { sheetId: manualSheetId.trim(), gid: manualGid.trim() || "0" }
+        : { url: url.trim() };
+      const res = await fetch("/api/sheet-sources/test-fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Admin-PIN": pin },
+        body: JSON.stringify(payload),
+      });
+      const data: TestResult = await res.json();
+      setTestResult(data);
+      if (data.ok) {
+        toast({
+          title: "Sheet valid!",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "Test fetch gagal",
+          description: data.error,
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      setTestResult({ ok: false, error: `Network: ${msg}` });
+      toast({
+        title: "Test fetch gagal",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function handleAdd() {
+    if (!label.trim()) {
+      toast({
+        title: "Label wajib",
+        description: "Isi label dulu (mis. 'September 2026').",
+        variant: "destructive",
+      });
+      return;
+    }
+    const hasUrl = url.trim();
+    const hasManual = manualSheetId.trim();
+    if (!hasUrl && !hasManual) {
+      toast({
+        title: "URL / sheetId wajib",
+        description: "Isi URL Google Sheets atau manual sheetId di Advanced.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // If test hasn't been run or failed, warn the user
+    if (!testResult || !testResult.ok) {
+      toast({
+        title: "Test fetch dulu",
+        description:
+          "Sebelum simpan, klik 'Test Fetch' untuk pastikan sheet bisa diakses & formatnya benar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setAdding(true);
     try {
       const res = await fetch("/api/sheet-sources", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Admin-PIN": pin },
-        body: JSON.stringify({ label: label.trim(), url: url.trim(), note: note.trim() }),
+        body: JSON.stringify({
+          label: label.trim(),
+          url: url.trim() || undefined,
+          sheetId: manualSheetId.trim() || undefined,
+          gid: manualGid.trim() || undefined,
+          note: note.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -106,9 +214,14 @@ export function SheetManagerModal({
         title: "Sheet ditambahkan",
         description: `${label} berhasil ditambahkan & dijadikan active.`,
       });
+      // Reset form
       setLabel("");
       setUrl("");
       setNote("");
+      setManualSheetId("");
+      setManualGid("");
+      setTestResult(null);
+      setAdvancedOpen(false);
       onChange();
     } catch (e) {
       toast({
@@ -225,18 +338,18 @@ export function SheetManagerModal({
                 <div className="space-y-2">
                   <div>
                     <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Label (mis. &quot;November 2026&quot;)
+                      Label (mis. &quot;September 2026&quot;)
                     </Label>
                     <Input
                       value={label}
                       onChange={(e) => setLabel(e.target.value)}
-                      placeholder="November 2026"
+                      placeholder="September 2026"
                       className="mt-1 h-8 text-xs"
                     />
                   </div>
                   <div>
                     <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      URL Google Sheets
+                      URL Google Sheets (paste lengkap dari address bar)
                     </Label>
                     <Input
                       value={url}
@@ -245,10 +358,166 @@ export function SheetManagerModal({
                       className="mt-1 h-8 font-mono text-[10px]"
                     />
                     <p className="mt-1 text-[10px] text-muted-foreground">
-                      Paste URL lengkap dari address bar browser. sheetId &amp; gid
-                      akan di-parse otomatis.
+                      Tip: buka tab Google Sheets yang berisi data, copy URL dari
+                      address bar (termasuk #gid=...), paste di sini.
                     </p>
                   </div>
+
+                  {/* Live URL parse preview */}
+                  {url.trim() && (
+                    <div className="rounded-md bg-white/5 px-2 py-1.5 text-[10px]">
+                      {parsedUrl ? (
+                        <div className="flex flex-wrap items-center gap-1 text-emerald-300">
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span>Parsed:</span>
+                          <Badge variant="outline" className="h-4 px-1 text-[9px] border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+                            <span className="font-mono">sheetId: {parsedUrl.sheetId.slice(0, 16)}...</span>
+                          </Badge>
+                          <Badge variant="outline" className="h-4 px-1 text-[9px] border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
+                            <span className="font-mono">gid: {parsedUrl.gid}</span>
+                          </Badge>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-amber-300">
+                          <AlertCircle className="h-3 w-3" />
+                          <span>
+                            URL tidak dikenali. Pastikan format /d/{`{ID}`}/edit#gid=
+                            atau gunakan Advanced di bawah untuk input manual.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Advanced toggle for manual sheetId/gid */}
+                  <button
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                    onClick={() => setAdvancedOpen(!advancedOpen)}
+                  >
+                    {advancedOpen ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                    Advanced (input manual sheetId / gid)
+                  </button>
+                  {advancedOpen && (
+                    <div className="space-y-2 rounded-md bg-white/5 p-2">
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Manual sheetId
+                        </Label>
+                        <Input
+                          value={manualSheetId}
+                          onChange={(e) => setManualSheetId(e.target.value)}
+                          placeholder="1A2B3C... (44 chars)"
+                          className="mt-1 h-8 font-mono text-[10px]"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Manual gid (tab ID, angka)
+                        </Label>
+                        <Input
+                          value={manualGid}
+                          onChange={(e) => setManualGid(e.target.value)}
+                          placeholder="0 (default tab) atau 123456789"
+                          className="mt-1 h-8 font-mono text-[10px]"
+                        />
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          gid ada di URL setelah <code className="font-mono">#gid=</code>.
+                          Kalau tab cuma 1, biasanya gid=0.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Test Fetch button */}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 border-cyan-500/30 bg-cyan-500/10 text-xs text-cyan-300 hover:bg-cyan-500/20"
+                      onClick={handleTestFetch}
+                      disabled={testing || (!url.trim() && !manualSheetId.trim())}
+                    >
+                      {testing ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        <>
+                          <FlaskConical className="h-3.5 w-3.5" />
+                          Test Fetch
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-emerald-500/15 text-xs text-emerald-300 hover:bg-emerald-500/25"
+                      onClick={handleAdd}
+                      disabled={adding}
+                    >
+                      {adding ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Menyimpan...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-3.5 w-3.5" />
+                          Tambah &amp; Aktifkan
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Test result display */}
+                  {testResult && (
+                    <div
+                      className={cn(
+                        "rounded-md border px-3 py-2 text-[11px]",
+                        testResult.ok
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                          : "border-red-500/30 bg-red-500/10 text-red-300",
+                      )}
+                    >
+                      <div className="flex items-start gap-1.5">
+                        {testResult.ok ? (
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        ) : (
+                          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        )}
+                        <div className="flex-1 space-y-1">
+                          <p className="font-semibold">
+                            {testResult.ok ? "Sheet valid!" : "Test fetch gagal"}
+                          </p>
+                          <p className="leading-relaxed">
+                            {testResult.ok ? testResult.message : testResult.error}
+                          </p>
+                          {testResult.rowCount !== undefined && (
+                            <p className="text-[10px] opacity-80">
+                              Row count: {testResult.rowCount.toLocaleString("id-ID")}
+                            </p>
+                          )}
+                          {testResult.missingHeaders && testResult.missingHeaders.length > 0 && (
+                            <p className="text-[10px] opacity-80">
+                              Kolom hilang: {testResult.missingHeaders.join(", ")}
+                            </p>
+                          )}
+                          {testResult.actualHeaders && (
+                            <p className="text-[10px] opacity-80">
+                              Headers ({testResult.actualHeaders.length}):{" "}
+                              {testResult.actualHeaders.slice(0, 6).join(", ")}
+                              {testResult.actualHeaders.length > 6 ? ", ..." : ""}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                       Catatan (opsional)
@@ -260,24 +529,6 @@ export function SheetManagerModal({
                       className="mt-1 h-8 text-xs"
                     />
                   </div>
-                  <Button
-                    size="sm"
-                    className="w-full gap-1.5 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                    onClick={handleAdd}
-                    disabled={adding}
-                  >
-                    {adding ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        Menambahkan...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-3.5 w-3.5" />
-                        Tambah &amp; Jadikan Aktif
-                      </>
-                    )}
-                  </Button>
                 </div>
               </div>
 
