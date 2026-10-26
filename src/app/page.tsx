@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   TrendingUp,
   Store,
@@ -155,11 +155,123 @@ export default function Home() {
       });
       // Refetch sheet data with force refresh to load new sheet's records
       await Promise.all([fetchSources(), fetchData(true)]);
+      // Reset cross-sheet compare - need to refetch prev month for new active sheet
+      store.resetCrossSheet();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setError(`Gagal ganti sheet: ${msg}`);
     }
   }, [fetchSources, fetchData, store]);
+
+  // ----- Cross-sheet compare state (vs sheet bulan lalu, same day-of-month) -----
+  const {
+    crossSheetCompareEnabled,
+    crossSheetLoading,
+    crossSheetAvailable,
+    crossSheetPrevSourceId,
+    crossSheetPrevSourceLabel,
+    crossSheetPrevDateStart,
+    crossSheetPrevDateEnd,
+    crossSheetUnavailableReason,
+  } = store;
+  const [crossSheetKpi, setCrossSheetKpi] = useState<{
+    kpi: import("@/lib/types").KpiSummary | null;
+    dailyTrend: import("@/lib/types").TrendPoint[] | null;
+  }>({ kpi: null, dailyTrend: null });
+
+  // Toggle cross-sheet compare - fetch prev month data on enable
+  const handleToggleCrossSheetCompare = useCallback(async () => {
+    if (!data?.meta.sheetSourceId || !dateStart || !dateEnd) return;
+
+    // If turning OFF
+    if (crossSheetCompareEnabled) {
+      store.setCrossSheetCompareEnabled(false);
+      setCrossSheetKpi({ kpi: null, dailyTrend: null });
+      return;
+    }
+
+    // Turning ON - fetch prev month compare
+    store.setCrossSheetCompareEnabled(true);
+    // useEffect will trigger the fetch automatically when crossSheetCompareEnabled flips
+  }, [data, dateStart, dateEnd, crossSheetCompareEnabled, store]);
+
+  // Re-fetch cross-sheet compare when filters or date range change (if enabled)
+  // Use individual primitive deps to avoid infinite loop with store object reference
+  const selOutlets = store.outlets;
+  const selPayments = store.payments;
+  const selItemCategories = store.itemCategories;
+  const selMenuTypes = store.menuTypes;
+  const activeSheetSourceId = data?.meta.sheetSourceId ?? null;
+  // Refs to store actions to keep them stable across renders
+  const setCrossSheetLoadingRef = useRef(store.setCrossSheetLoading);
+  const setCrossSheetResultRef = useRef(store.setCrossSheetResult);
+  setCrossSheetLoadingRef.current = store.setCrossSheetLoading;
+  setCrossSheetResultRef.current = store.setCrossSheetResult;
+
+  useEffect(() => {
+    if (!crossSheetCompareEnabled) return;
+    if (!activeSheetSourceId || !dateStart || !dateEnd) return;
+    let cancelled = false;
+    (async () => {
+      setCrossSheetLoadingRef.current(true);
+      try {
+        const res = await fetch("/api/sheets/compare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            activeSourceId: activeSheetSourceId,
+            currentDateRange: { start: dateStart, end: dateEnd },
+            filters: {
+              outlets: selOutlets,
+              payments: selPayments,
+              itemCategories: selItemCategories,
+              menuTypes: selMenuTypes,
+            },
+          }),
+        });
+        if (!res.ok) {
+          setCrossSheetLoadingRef.current(false);
+          return;
+        }
+        const body = await res.json();
+        if (cancelled) return;
+        if (body.available) {
+          setCrossSheetResultRef.current({
+            prevSourceId: body.prevSource?.id ?? null,
+            prevSourceLabel: body.prevSource?.label ?? "",
+            prevDateStart: body.prevDateRange.start,
+            prevDateEnd: body.prevDateRange.end,
+            available: true,
+          });
+          setCrossSheetKpi({ kpi: body.prevKpi, dailyTrend: body.prevDailyTrend });
+        } else {
+          setCrossSheetResultRef.current({
+            prevSourceId: null,
+            prevSourceLabel: "",
+            prevDateStart: body.prevDateRange?.start ?? "",
+            prevDateEnd: body.prevDateRange?.end ?? "",
+            available: false,
+            unavailableReason: body.unavailableReason,
+          });
+          setCrossSheetKpi({ kpi: null, dailyTrend: null });
+        }
+      } catch {
+        if (!cancelled) setCrossSheetLoadingRef.current(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    crossSheetCompareEnabled,
+    dateStart,
+    dateEnd,
+    activeSheetSourceId,
+    selOutlets,
+    selPayments,
+    selItemCategories,
+    selMenuTypes,
+  ]);
 
   // ----- Filter state -----
   const filterState = useMemo(
@@ -449,35 +561,91 @@ export default function Home() {
           outlets={data.meta.outlets}
           paymentMethods={data.meta.paymentMethods}
           itemCategories={data.meta.itemCategories}
+          onToggleCrossSheetCompare={handleToggleCrossSheetCompare}
         />
 
-        {/* KPI grid */}
-        <KpiGrid kpi={kpi} prevKpi={compareEnabled ? prevKpi : null} hasPrev={compareEnabled} />
+        {/* Cross-sheet compare banner */}
+        {crossSheetCompareEnabled && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-amber-300">
+                vs Bulan Lalu
+              </span>
+              {crossSheetLoading ? (
+                <span className="text-muted-foreground">Memuat data bulan lalu...</span>
+              ) : crossSheetAvailable ? (
+                <>
+                  <span className="text-muted-foreground">
+                    Membandingkan dengan <span className="text-foreground">{crossSheetPrevSourceLabel}</span> ({crossSheetPrevDateStart} → {crossSheetPrevDateEnd})
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    • Filter outlet/payment/kategori menu juga diterapkan ke data bulan lalu
+                  </span>
+                </>
+              ) : (
+                <span className="text-red-400">
+                  {crossSheetUnavailableReason || "Data bulan lalu tidak tersedia"}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* KPI grid - shows delta vs prev period (within-sheet OR cross-sheet) */}
+        <KpiGrid
+          kpi={kpi}
+          prevKpi={
+            crossSheetCompareEnabled && crossSheetAvailable
+              ? crossSheetKpi.kpi
+              : compareEnabled
+                ? prevKpi
+                : null
+          }
+          hasPrev={
+            crossSheetCompareEnabled && crossSheetAvailable ? true : compareEnabled
+          }
+        />
 
         {/* Revenue trend + Insight panel */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <SectionCard
             title="Tren Revenue Harian"
             subtitle={
-              compareEnabled
-                ? `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)} (vs prev ${formatDateLong(prevDateStart)} → ${formatDateLong(prevDateEnd)})`
-                : `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)}`
+              crossSheetCompareEnabled && crossSheetAvailable
+                ? `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)} (vs bulan lalu ${formatDateLong(crossSheetPrevDateStart)} → ${formatDateLong(crossSheetPrevDateEnd)})`
+                : compareEnabled
+                  ? `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)} (vs prev ${formatDateLong(prevDateStart)} → ${formatDateLong(prevDateEnd)})`
+                  : `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)}`
             }
             icon={<TrendingUp className="h-4 w-4 text-emerald-300" />}
             className="lg:col-span-2"
           >
             <RevenueTrendChart
               current={dailyTrend}
-              previous={prevDailyTrend}
-              compareEnabled={compareEnabled}
+              previous={
+                crossSheetCompareEnabled && crossSheetAvailable
+                  ? crossSheetKpi.dailyTrend
+                  : prevDailyTrend
+              }
+              compareEnabled={
+                (crossSheetCompareEnabled && crossSheetAvailable) || compareEnabled
+              }
             />
           </SectionCard>
 
           <InsightPanel
             meta={data.meta}
             kpi={kpi}
-            prevKpi={prevKpi}
-            hasPrev={compareEnabled}
+            prevKpi={
+              crossSheetCompareEnabled && crossSheetAvailable
+                ? crossSheetKpi.kpi
+                : compareEnabled
+                  ? prevKpi
+                  : null
+            }
+            hasPrev={
+              (crossSheetCompareEnabled && crossSheetAvailable) || compareEnabled
+            }
             topOutlets={outletAgg.slice(0, 5)}
             topItems={itemAgg.slice(0, 5)}
             paymentMix={paymentAgg}

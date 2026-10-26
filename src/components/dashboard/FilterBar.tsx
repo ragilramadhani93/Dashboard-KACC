@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Calendar, Store, CreditCard, Coffee, X, ChevronDown, GitCompareArrows, RotateCcw } from "lucide-react";
+import { Calendar, Store, CreditCard, Coffee, X, ChevronDown, GitCompareArrows, RotateCcw, CalendarClock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,8 @@ interface FilterBarProps {
   outlets: string[];
   paymentMethods: string[];
   itemCategories: string[];
+  /** Optional: cross-sheet compare (vs sheet bulan lalu) */
+  onToggleCrossSheetCompare?: () => void;
 }
 
 const PRESET_OPTIONS: Array<{ value: PresetRange; label: string }> = [
@@ -35,7 +37,13 @@ const PRESET_OPTIONS: Array<{ value: PresetRange; label: string }> = [
   { value: "all", label: "Semua Data" },
 ];
 
-export function FilterBar({ dataRange, outlets, paymentMethods, itemCategories }: FilterBarProps) {
+export function FilterBar({
+  dataRange,
+  outlets,
+  paymentMethods,
+  itemCategories,
+  onToggleCrossSheetCompare,
+}: FilterBarProps) {
   const {
     preset,
     dateStart,
@@ -44,6 +52,13 @@ export function FilterBar({ dataRange, outlets, paymentMethods, itemCategories }
     payments: selPayments,
     itemCategories: selCats,
     compareEnabled,
+    // Cross-sheet compare state
+    crossSheetCompareEnabled,
+    crossSheetLoading,
+    crossSheetAvailable,
+    crossSheetPrevSourceLabel,
+    crossSheetPrevDateStart,
+    crossSheetPrevDateEnd,
     setPreset,
     setDateRange,
     toggleOutlet,
@@ -285,7 +300,7 @@ export function FilterBar({ dataRange, outlets, paymentMethods, itemCategories }
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Compare mode toggle */}
+        {/* Compare mode toggle (within-sheet, previous N days) */}
         <Button
           variant="outline"
           size="sm"
@@ -294,6 +309,7 @@ export function FilterBar({ dataRange, outlets, paymentMethods, itemCategories }
             compareEnabled && "border-purple-500/40 bg-purple-500/15 text-purple-300",
           )}
           onClick={() => setCompareEnabled(!compareEnabled)}
+          title="Compare dengan periode sebelumnya dalam sheet yang sama (mis. minggu lalu)"
         >
           <GitCompareArrows className="h-3.5 w-3.5" />
           <span>Compare Mode</span>
@@ -303,6 +319,40 @@ export function FilterBar({ dataRange, outlets, paymentMethods, itemCategories }
             </span>
           )}
         </Button>
+
+        {/* Cross-sheet compare toggle (vs sheet bulan lalu, same day-of-month) */}
+        {onToggleCrossSheetCompare && (
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10",
+              crossSheetCompareEnabled && "border-amber-500/40 bg-amber-500/15 text-amber-300",
+            )}
+            onClick={onToggleCrossSheetCompare}
+            disabled={crossSheetLoading}
+            title="Compare dengan tanggal yang sama di sheet bulan lalu (mis. 8-14 Okt vs 8-14 Sep)"
+          >
+            {crossSheetLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <CalendarClock className="h-3.5 w-3.5" />
+            )}
+            <span>vs Bulan Lalu</span>
+            {crossSheetCompareEnabled && crossSheetAvailable && (
+              <span className="text-[10px] text-muted-foreground">
+                {crossSheetPrevSourceLabel
+                  ? `(${crossSheetPrevSourceLabel}, ${crossSheetPrevDateStart} → ${crossSheetPrevDateEnd})`
+                  : `(${crossSheetPrevDateStart} → ${crossSheetPrevDateEnd})`}
+              </span>
+            )}
+            {crossSheetCompareEnabled && !crossSheetAvailable && !crossSheetLoading && (
+              <Badge variant="outline" className="h-4 px-1 text-[9px] border-red-500/40 bg-red-500/10 text-red-400">
+                N/A
+              </Badge>
+            )}
+          </Button>
+        )}
 
         {/* Reset all */}
         {totalActiveFilters > 0 && (

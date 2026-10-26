@@ -14,10 +14,20 @@ interface DashboardStoreState {
   itemCategories: string[];
   menuTypes: string[];
 
-  // Compare mode
+  // Compare mode (within-sheet, previous N days)
   compareEnabled: boolean;
   prevDateStart: string;
   prevDateEnd: string;
+
+  // Cross-sheet compare (vs sheet bulan lalu, same day-of-month)
+  crossSheetCompareEnabled: boolean;
+  crossSheetPrevSourceId: string | null;
+  crossSheetPrevSourceLabel: string;
+  crossSheetPrevDateStart: string;
+  crossSheetPrevDateEnd: string;
+  crossSheetLoading: boolean;
+  crossSheetAvailable: boolean;
+  crossSheetUnavailableReason: string;
 
   // Insight state
   insightLoading: boolean;
@@ -40,6 +50,19 @@ interface DashboardStoreState {
   clearItemCategories: () => void;
   setCompareEnabled: (enabled: boolean) => void;
   setCompareRange: (prevStart: string, prevEnd: string) => void;
+
+  // Cross-sheet compare actions
+  setCrossSheetCompareEnabled: (enabled: boolean) => void;
+  setCrossSheetLoading: (loading: boolean) => void;
+  setCrossSheetResult: (data: {
+    prevSourceId: string | null;
+    prevSourceLabel: string;
+    prevDateStart: string;
+    prevDateEnd: string;
+    available: boolean;
+    unavailableReason?: string;
+  }) => void;
+  resetCrossSheet: () => void;
 
   setInsight: (data: {
     narrative: string;
@@ -122,6 +145,16 @@ export const useDashboardStore = create<DashboardStoreState>((set, get) => ({
   prevDateStart: "",
   prevDateEnd: "",
 
+  // Cross-sheet compare state (vs sheet bulan lalu)
+  crossSheetCompareEnabled: false,
+  crossSheetPrevSourceId: null,
+  crossSheetPrevSourceLabel: "",
+  crossSheetPrevDateStart: "",
+  crossSheetPrevDateEnd: "",
+  crossSheetLoading: false,
+  crossSheetAvailable: false,
+  crossSheetUnavailableReason: "",
+
   insightLoading: false,
   insightNarrative: "",
   insightHighlights: [],
@@ -185,6 +218,31 @@ export const useDashboardStore = create<DashboardStoreState>((set, get) => ({
   setCompareEnabled: (enabled) => set({ compareEnabled: enabled }),
   setCompareRange: (prevStart, prevEnd) =>
     set({ prevDateStart: prevStart, prevDateEnd: prevEnd }),
+
+  // Cross-sheet compare actions
+  setCrossSheetCompareEnabled: (enabled) => set({ crossSheetCompareEnabled: enabled }),
+  setCrossSheetLoading: (loading) => set({ crossSheetLoading: loading }),
+  setCrossSheetResult: (data) =>
+    set({
+      crossSheetPrevSourceId: data.prevSourceId,
+      crossSheetPrevSourceLabel: data.prevSourceLabel,
+      crossSheetPrevDateStart: data.prevDateStart,
+      crossSheetPrevDateEnd: data.prevDateEnd,
+      crossSheetAvailable: data.available,
+      crossSheetUnavailableReason: data.unavailableReason ?? "",
+      crossSheetLoading: false,
+    }),
+  resetCrossSheet: () =>
+    set({
+      crossSheetCompareEnabled: false,
+      crossSheetPrevSourceId: null,
+      crossSheetPrevSourceLabel: "",
+      crossSheetPrevDateStart: "",
+      crossSheetPrevDateEnd: "",
+      crossSheetLoading: false,
+      crossSheetAvailable: false,
+      crossSheetUnavailableReason: "",
+    }),
 
   setInsight: (data) =>
     set({
