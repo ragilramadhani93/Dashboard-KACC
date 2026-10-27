@@ -189,7 +189,13 @@ Aturan output WAJIB:
   "paymentMethodAnalysis": "<paragraf 3-4 kalimat menganalisa perubahan metode pembayaran - mana yang turun/naik, persen perubahan, estimasi rupiah, kemungkinan penyebab, dan dampak bisnis>"
 }
 
-PENTING: Output HANYA JSON valid, tanpa markdown code fence, tanpa teks tambahan sebelum/sesudah JSON.`;
+PENTING: 
+- Output HANYA JSON valid, tanpa markdown code fence, tanpa teks tambahan sebelum/sesudah JSON.
+- JANGAN TRUNCATE output di tengah. Pastikan JSON lengkap dan valid.
+- Untuk suspectedStockout: list SEMUA item yang terindikasi stock-out (bisa 10-15 item), jangan dibatasi 5.
+- Untuk restockPriority: list TOP 10 item, bukan hanya 5.
+- Kalau token mulai menipis, prioritaskan kelengkapan JSON: tutup semua array dan object dengan benar.
+- Format alasan singkat: "ITEM - 1 kalimat alasan" supaya efficient tokens.`;
 
 export async function POST(request: Request) {
   let body: StockoutRequest;
@@ -499,14 +505,17 @@ TOTAL ESTIMASI REVENUE LOSS dari item-item di atas: ${formatRupiah(totalRevenueL
 ${paymentStr}
 
 Tolong analisa dan hasilkan:
-1. narrative: paragraf 3-5 kalimat meringkas temuan utama - berapa item terindikasi stock-out, total revenue loss, pola yang terlihat, DAN ringkasan perubahan metode pembayaran (mana yang naik/turun signifikan).
-2. suspectedStockout: list item yang MENURUT ANDA paling likely out-of-stock (bukan trend decline), dengan alasan spesifik.
+1. narrative: paragraf 4-6 kalimat meringkas temuan utama - berapa item terindikasi stock-out, total revenue loss, pola yang terlihat, DAN ringkasan perubahan metode pembayaran (mana yang naik/turun signifikan).
+2. suspectedStockout: list SEMUA item yang MENURUT ANDA likely out-of-stock (bukan trend decline) - jangan dibatasi 5, sebutkan semua yang relevant. Format: "ITEM - alasan singkat (qty X di Y hari padahal biasanya Z cup/hari)".
 3. revenueLossEstimate: estimasi total rupiah hilang dari stock-out (bukan dari trend decline).
-4. restockPriority: top 5 item yang perlu diprioritaskan restock, dengan priority KRITIS/TINGGI/SEDANG dan reason.
-5. recommendations: 2-3 rekomendasi operasional, termasuk terkait metode pembayaran yang turun (mis. "Investigasi penurunan SHOPEEFOOD - cek kerjasama merchant", "Promosi Cash untuk boost share").
-6. paymentMethodAnalysis: paragraf 2-3 kalimat menganalisa perubahan metode pembayaran - mana yang turun/naik, kemungkinan penyebab, dan dampaknya ke bisnis.
+4. restockPriority: TOP 10 item yang perlu diprioritaskan restock, dengan priority KRITIS/TINGGI/SEDANG dan reason singkat.
+5. recommendations: 3-5 rekomendasi operasional, termasuk terkait metode pembayaran yang turun (mis. "Investigasi penurunan SHOPEEFOOD - cek kerjasama merchant", "Promosi Cash untuk boost share").
+6. paymentMethodAnalysis: paragraf 3-4 kalimat menganalisa perubahan metode pembayaran - mana yang turun/naik, kemungkinan penyebab, dan dampaknya ke bisnis.
 
-PENTING: Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari TREND DECLINE (penjualan turun tapi masih ada). Hanya masukkan ke suspectedStockout kalau benar-benar indikasi stock-out.`;
+PENTING: 
+- Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari TREND DECLINE (penjualan turun tapi masih ada). Hanya masukkan ke suspectedStockout kalau benar-benar indikasi stock-out.
+- JANGAN TRUNCATE output. Pastikan semua field terisi lengkap. Kalau perlu, pakai kalimat lebih singkat per item tapi tetap sebutkan SEMUA item.
+- Output HARUS JSON valid lengkap, jangan terpotong di tengah.`;
 
   try {
     const ai = await ZAI.create();
@@ -516,10 +525,12 @@ PENTING: Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari 
         { role: "user", content: userPrompt },
       ],
       temperature: 0.4,
-      max_tokens: 2500,
+      max_tokens: 4000,
     });
 
     const raw = completion.choices?.[0]?.message?.content ?? "";
+    const finishReason = completion.choices?.[0]?.finish_reason;
+    const wasTruncated = finishReason === "length";
 
     // Try multiple JSON extraction strategies since model may truncate or add prose
     let parsed: {
@@ -531,30 +542,56 @@ PENTING: Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari 
       paymentMethodAnalysis?: string;
     } = {};
 
-    // Strategy 1: try to find complete JSON object
+    // Helper: aggressive JSON repair
+    function repairJson(s: string): string {
+      let repaired = s;
+      // Remove markdown code fences if any
+      repaired = repaired.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+      // Remove trailing comma before ] or }
+      repaired = repaired.replace(/,\s*([\]}])/g, "$1");
+      // Close unclosed string literals (if truncated mid-string)
+      // Find last complete key-value pair
+      const openBraces = (repaired.match(/\{/g) || []).length;
+      const closeBraces = (repaired.match(/\}/g) || []).length;
+      const openBrackets = (repaired.match(/\[/g) || []).length;
+      const closeBrackets = (repaired.match(/\]/g) || []).length;
+      // If there's an unclosed string (odd number of unescaped quotes), close it
+      const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
+      if (quoteCount % 2 !== 0) {
+        repaired += '"';
+      }
+      // Close unclosed arrays
+      for (let i = 0; i < openBrackets - closeBrackets; i++) repaired += "]";
+      // Close unclosed objects
+      for (let i = 0; i < openBraces - closeBraces; i++) repaired += "}";
+      return repaired;
+    }
+
+    // Strategy 1: try to find complete JSON object via regex
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
         parsed = JSON.parse(jsonMatch[0]);
       } catch {
-        // Strategy 2: maybe truncated - try to repair by closing braces
-        const truncated = jsonMatch[0];
-        const openBraces = (truncated.match(/\{/g) || []).length;
-        const closeBraces = (truncated.match(/\}/g) || []).length;
-        const openBrackets = (truncated.match(/\[/g) || []).length;
-        const closeBrackets = (truncated.match(/\]/g) || []).length;
-        let repaired = truncated;
-        // Close any unclosed arrays
-        for (let i = 0; i < openBrackets - closeBrackets; i++) repaired += "]";
-        // Close any unclosed objects
-        for (let i = 0; i < openBraces - closeBraces; i++) repaired += "}";
-        // Remove trailing comma if any
-        repaired = repaired.replace(/,\s*([\]}])/g, "$1");
+        // Strategy 2: try repaired version
+        const repaired = repairJson(jsonMatch[0]);
         try {
           parsed = JSON.parse(repaired);
         } catch {
-          // Strategy 3: fallback - treat whole output as narrative
-          parsed = { narrative: raw };
+          // Strategy 3: try to extract partial - find the last complete key
+          // and truncate there, then close braces
+          const partialRaw = raw.includes("{") ? raw.slice(raw.indexOf("{")) : raw;
+          const repairedPartial = repairJson(partialRaw);
+          try {
+            parsed = JSON.parse(repairedPartial);
+          } catch {
+            // Strategy 4: fallback - treat whole output as narrative
+            parsed = {
+              narrative: wasTruncated
+                ? raw + "\n\n[Catatan: output AI terpotong karena limit token. Data item tetap tersedia di tabel di bawah.]"
+                : raw,
+            };
+          }
         }
       }
     } else {
