@@ -8,6 +8,7 @@ import {
   Coffee,
   Package,
   PackageX,
+  Cookie,
   BarChart3,
   Table2,
   CalendarDays,
@@ -34,6 +35,7 @@ import { InsightPanel } from "@/components/dashboard/InsightPanel";
 import { SheetManagerModal } from "@/components/dashboard/SheetManagerModal";
 import { HourlyDrilldownDialog } from "@/components/dashboard/HourlyDrilldownDialog";
 import { StockoutAnalysisDialog } from "@/components/dashboard/StockoutAnalysisDialog";
+import { SnackAnalysisDialog } from "@/components/dashboard/SnackAnalysisDialog";
 import { useDashboardStore, computePresetRange } from "@/lib/dashboard/store";
 import {
   applyFilter,
@@ -71,6 +73,9 @@ export default function Home() {
 
   // Stockout analysis dialog state
   const [stockoutOpen, setStockoutOpen] = useState(false);
+
+  // Snack analysis dialog state
+  const [snackOpen, setSnackOpen] = useState(false);
 
   // Apply initial preset based on actual data range
   const dataRange = data?.meta.dateRange ?? { start: "", end: "" };
@@ -745,6 +750,42 @@ export default function Home() {
           </div>
         </SectionCard>
 
+        {/* Snack / Pastry / RTD Analysis - AI analisa penjualan makanan */}
+        <SectionCard
+          title="Analisa Penjualan Snack, Pastry & RTD"
+          subtitle="AI analisa performa makanan (ice cream, cake, croissant, RTD) - best-seller, naik/turun, peluang upsell"
+          icon={<Cookie className="h-4 w-4 text-pink-300" />}
+          action={
+            <Button
+              size="sm"
+              className="gap-1.5 bg-pink-500/15 text-xs text-pink-300 hover:bg-pink-500/25"
+              onClick={() => setSnackOpen(true)}
+              disabled={!activeSheetId || !dateStart || !dateEnd}
+            >
+              <Cookie className="h-3.5 w-3.5" />
+              Analisa Snack
+            </Button>
+          }
+        >
+          <div className="flex flex-col gap-2 py-2 text-xs text-muted-foreground">
+            <p>
+              Klik <span className="font-medium text-pink-300">Analisa Snack</span> untuk
+              menjalankan AI analisa penjualan makanan. Sistem akan:
+            </p>
+            <ul className="ml-4 list-disc space-y-0.5 text-[11px]">
+              <li>Aggregate semua item kategori Snack, Pastry, RTD + compare vs bulan lalu</li>
+              <li>Identifikasi best-seller & item yang naik/turun signifikan</li>
+              <li>Hitung revenue per kategori + delta vs bulan lalu</li>
+              <li>Rekomendasi peluang upsell/cross-sell & strategi menu</li>
+            </ul>
+            <p className="text-[10px]">
+              💡 Kategori otomatis: <span className="text-pink-300">Snack</span> (ice cream, wingko, cookies),
+              <span className="text-amber-300"> Pastry</span> (cake, croissant, pie, roll, puff),
+              <span className="text-cyan-300"> RTD</span> (GD series, ABC, LOVY, Danish).
+            </p>
+          </div>
+        </SectionCard>
+
         {/* Top outlets + Payment mix */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <SectionCard
@@ -864,6 +905,20 @@ export default function Home() {
       <StockoutAnalysisDialog
         open={stockoutOpen}
         onOpenChange={setStockoutOpen}
+        activeSourceId={activeSheetId}
+        currentDateRange={{ start: dateStart, end: dateEnd }}
+        filters={{
+          outlets: store.outlets,
+          payments: store.payments,
+          itemCategories: store.itemCategories,
+          menuTypes: store.menuTypes,
+        }}
+      />
+
+      {/* Snack analysis dialog - AI analisa penjualan makanan */}
+      <SnackAnalysisDialog
+        open={snackOpen}
+        onOpenChange={setSnackOpen}
         activeSourceId={activeSheetId}
         currentDateRange={{ start: dateStart, end: dateEnd }}
         filters={{

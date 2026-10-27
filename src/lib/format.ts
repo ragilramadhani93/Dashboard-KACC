@@ -12,19 +12,29 @@ export function normalizePayment(raw: string): string {
 
 /**
  * Derive item category from item name.
- * - PACKAGING FEE -> Packaging
- * - CUP 17 AGUSTUS / CUP ... -> Merchandise
- * - starts with coffee-ish words -> Coffee
- * - non-coffee -> Non-Coffee
+ * Categories:
+ * - Packaging: PACKAGING FEE
+ * - Merchandise: CUP ...
+ * - Coffee: kopi-based drinks
+ * - Non-Coffee: non-coffee drinks (matcha, chocolate, soda, tea, air mineral)
+ * - Snack: light snacks (ice cream, wingko, cookies, kue kering)
+ * - Pastry: bakery items (croissant, pie, cake, roll, puff, cinnamon)
+ * - RTD: ready-to-drink packaged beverages (GD ..., RTD suffix, ABC ...)
+ * - Other: fallback
  */
 export function deriveItemCategory(itemName: string): string {
   const name = (itemName || "").toUpperCase().trim();
   if (!name) return "Other";
+
+  // 1. Special packaging / merchandise
   if (name.startsWith("PACKAGING")) return "Packaging";
   if (name.startsWith("CUP ")) return "Merchandise";
-  if (name.startsWith("AIR MINERAL")) return "Non-Coffee";
-  if (name.startsWith("ABC SUSU")) return "Non-Coffee";
 
+  // 2. Water & basic drinks
+  if (name.startsWith("AIR MINERAL")) return "Non-Coffee";
+  if (name.startsWith("ABC ")) return "RTD"; // ABC SUSU, ABC CHOCOMALT - packaged
+
+  // 3. Coffee drinks
   const coffeeKeywords = [
     "COFFEE",
     "LATTE",
@@ -50,11 +60,72 @@ export function deriveItemCategory(itemName: string): string {
     "BUTTER COFFEE",
     "PEANUT BUTTER WHITE",
   ];
-  if (coffeeKeywords.some((k) => name.includes(k))) return "Coffee";
+  if (coffeeKeywords.some((k) => name.includes(k))) {
+    // GD (Grace Drinks) packaged coffee variants -> RTD
+    if (name.startsWith("GD ") && name.includes("RTD")) return "RTD";
+    return "Coffee";
+  }
 
-  const nonCoffeeKeywords = ["MATCHA", "CHOCO", "CHOCOLATE", "SIRUP", "SODA", "TEA", "TEH"];
+  // 4. RTD (Ready-to-Drink packaged beverages - GD series, etc.)
+  if (name.includes(" RTD")) return "RTD";
+  if (name.startsWith("GD ")) return "RTD";
+  if (name.startsWith("LOVY ")) return "RTD";
+  if (name.startsWith("DANISH ")) return "RTD";
+  if (name.startsWith("BONTEH")) return "RTD";
+
+  // 5. Non-coffee drinks (matcha/choco/tea/soda without "latte" suffix)
+  const nonCoffeeKeywords = ["MATCHA", "SIRUP", "SODA", "TEA", "TEH", "OAT MILK"];
   if (nonCoffeeKeywords.some((k) => name.includes(k))) return "Non-Coffee";
 
+  // 6. Smoothies / Float / Bliss / Sunrise / Blossom (signature non-coffee drinks)
+  const drinkKeywords = [
+    "SMOOTHIES",
+    "FLOAT",
+    "BLISS",
+    "SUNRISE",
+    "BLOSSOM",
+    "PROFFEE",
+    "COCOPANDAN",
+  ];
+  if (drinkKeywords.some((k) => name.includes(k))) return "Non-Coffee";
+
+  // 7. Pastry (bakery items)
+  const pastryKeywords = [
+    "CAKE",
+    "CROISSANT",
+    "PIE",
+    "ROLL",
+    "PUFF",
+    "CINNAMON",
+    "BROWNIES",
+    "BREAD",
+    "DONUT",
+    "MUFFIN",
+    "WAFFLE",
+    "PANCAKE",
+  ];
+  if (pastryKeywords.some((k) => name.includes(k))) return "Pastry";
+
+  // 8. Snack (light snacks / kue kering / kue tradisional)
+  const snackKeywords = [
+    "ICE CREAM",
+    "WINGKO",
+    "COOKIES",
+    "CREAM CHEESE", // small topping-style
+    "BISCUIT",
+    "CRACKER",
+    "CHIPS",
+    "KERIPIK",
+    "KUE",
+    "NASTAR",
+    "KASTENGEL",
+    "SORABI",
+    "ROTI",
+  ];
+  if (snackKeywords.some((k) => name.includes(k))) return "Snack";
+
+  // 9. Fallback to snack (most "Other" items are food/snacks at KACC)
+  // If contains "RTD" or known drink suffix, non-coffee; else Snack
   return "Other";
 }
 
