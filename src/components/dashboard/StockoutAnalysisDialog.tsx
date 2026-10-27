@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Lightbulb,
   AlertCircle,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,19 @@ interface ItemAnalysis {
   dailyBreakdown: DayBreakdown[];
 }
 
+interface PaymentAnalysis {
+  payment: string;
+  prevRevenue: number;
+  currRevenue: number;
+  prevTransactions: number;
+  currTransactions: number;
+  revenueDeltaPct: number | null;
+  txnDeltaPct: number | null;
+  prevShare: number;
+  currShare: number;
+  revenueChange: number;
+}
+
 interface StockoutResult {
   available: boolean;
   noIssues?: boolean;
@@ -63,13 +77,17 @@ interface StockoutResult {
   revenueLossEstimate?: string;
   restockPriority?: Array<{ item: string; priority: string; reason: string }>;
   recommendations?: string[];
+  paymentMethodAnalysis?: string;
   itemAnalyses?: ItemAnalysis[];
+  paymentAnalyses?: PaymentAnalysis[];
   meta?: {
     currentDateRange: { start: string; end: string };
     prevDateRange: { start: string; end: string };
     totalItemsAnalyzed: number;
     suspectedItemsCount: number;
     totalRevenueLossRaw: number;
+    totalCurrRevenue?: number;
+    totalPrevRevenue?: number;
   };
   generatedAt?: string;
   error?: string;
@@ -371,6 +389,180 @@ export function StockoutAnalysisDialog({
                     </div>
                   ))}
                 </div>
+              </section>
+            )}
+
+            {/* Payment method comparison */}
+            {result.paymentAnalyses && result.paymentAnalyses.length > 0 && (
+              <section>
+                <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <CreditCard className="h-3.5 w-3.5 text-cyan-300" />
+                  Penurunan per Metode Pembayaran (curr vs prev)
+                </h3>
+
+                {/* AI payment analysis narrative */}
+                {result.paymentMethodAnalysis && (
+                  <div className="mb-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-2.5">
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3 text-cyan-300" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
+                        Analisa AI - Payment Method
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-foreground/90">
+                      {result.paymentMethodAnalysis}
+                    </p>
+                  </div>
+                )}
+
+                {/* Payment table - sorted by revenueChange ascending (biggest losses first) */}
+                <div className="overflow-x-auto rounded-lg border border-white/5">
+                  <table className="w-full">
+                    <thead className="border-b border-white/5 bg-card/50">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Payment
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Revenue Ini
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Revenue Lalu
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Δ Revenue
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Δ %
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Txn Ini
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Txn Lalu
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Share Ini
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Share Lalu
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.paymentAnalyses.map((p) => {
+                        const isLoss = p.revenueChange < 0;
+                        const isGain = p.revenueChange > 0;
+                        const isSignificant = Math.abs(p.revenueChange) > 1_000_000; // > Rp 1 juta
+                        return (
+                          <tr
+                            key={p.payment}
+                            className={cn(
+                              "border-b border-white/5 transition-colors hover:bg-white/5",
+                              isLoss && isSignificant && "bg-red-500/5",
+                              isGain && isSignificant && "bg-emerald-500/5",
+                            )}
+                          >
+                            <td className="px-2 py-1.5 text-xs font-medium text-foreground">
+                              {p.payment}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-foreground">
+                              {formatRupiah(p.currRevenue)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
+                              {formatRupiah(p.prevRevenue)}
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 py-1.5 text-right text-xs font-bold tabular-nums",
+                                isLoss ? "text-red-400" : isGain ? "text-emerald-400" : "text-muted-foreground",
+                              )}
+                            >
+                              {isLoss ? "−" : isGain ? "+" : ""}
+                              {formatRupiah(Math.abs(p.revenueChange))}
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 py-1.5 text-right text-xs font-bold tabular-nums",
+                                p.revenueDeltaPct !== null && p.revenueDeltaPct < 0
+                                  ? "text-red-400"
+                                  : p.revenueDeltaPct !== null && p.revenueDeltaPct > 0
+                                    ? "text-emerald-400"
+                                    : "text-muted-foreground",
+                              )}
+                            >
+                              {p.revenueDeltaPct !== null ? formatPct(p.revenueDeltaPct) : "-"}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
+                              {formatNumber(p.currTransactions)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
+                              {formatNumber(p.prevTransactions)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-foreground">
+                              {formatPct(p.currShare)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
+                              {formatPct(p.prevShare)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {result.meta?.totalCurrRevenue !== undefined && result.meta?.totalPrevRevenue !== undefined && (
+                      <tfoot className="border-t-2 border-white/10 bg-card/30">
+                        <tr>
+                          <td className="px-2 py-1.5 text-xs font-bold text-foreground">TOTAL</td>
+                          <td className="px-2 py-1.5 text-right text-xs font-bold tabular-nums text-foreground">
+                            {formatRupiah(result.meta.totalCurrRevenue)}
+                          </td>
+                          <td className="px-2 py-1.5 text-right text-xs font-bold tabular-nums text-muted-foreground">
+                            {formatRupiah(result.meta.totalPrevRevenue)}
+                          </td>
+                          <td
+                            className={cn(
+                              "px-2 py-1.5 text-right text-xs font-bold tabular-nums",
+                              result.meta.totalCurrRevenue - result.meta.totalPrevRevenue < 0
+                                ? "text-red-400"
+                                : "text-emerald-400",
+                            )}
+                          >
+                            {result.meta.totalCurrRevenue - result.meta.totalPrevRevenue < 0 ? "−" : "+"}
+                            {formatRupiah(Math.abs(result.meta.totalCurrRevenue - result.meta.totalPrevRevenue))}
+                          </td>
+                          <td
+                            className={cn(
+                              "px-2 py-1.5 text-right text-xs font-bold tabular-nums",
+                              result.meta.totalPrevRevenue > 0 &&
+                              ((result.meta.totalCurrRevenue - result.meta.totalPrevRevenue) / result.meta.totalPrevRevenue) * 100 < 0
+                                ? "text-red-400"
+                                : "text-emerald-400",
+                            )}
+                          >
+                            {result.meta.totalPrevRevenue > 0
+                              ? formatPct(
+                                  ((result.meta.totalCurrRevenue - result.meta.totalPrevRevenue) /
+                                    result.meta.totalPrevRevenue) *
+                                    100,
+                                )
+                              : "-"}
+                          </td>
+                          <td colSpan={2}></td>
+                          <td className="px-2 py-1.5 text-right text-xs font-bold tabular-nums text-foreground">
+                            100,0%
+                          </td>
+                          <td className="px-2 py-1.5 text-right text-xs font-bold tabular-nums text-muted-foreground">
+                            100,0%
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+                <p className="mt-1.5 text-[10px] text-muted-foreground">
+                  💡 Baris merah = penurunan signifikan (&gt; Rp 1 juta). Baris hijau = kenaikan signifikan.
+                  Diurut dari loss terbesar ke gain.
+                </p>
               </section>
             )}
 

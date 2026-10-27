@@ -165,29 +165,31 @@ function classifySeverity(
   return { severity: "normal", reason: "Penurunan normal / dalam batas wajar" };
 }
 
-const SYSTEM_PROMPT = `Anda adalah analis operasional senior untuk jaringan kafe KACC (Kopi Aku Coffe Corner). Tugas Anda menganalisa data penjualan menu untuk mengidentifikasi indikasi stock-out (kehabisan stok) dengan membandingkan periode saat ini vs periode yang sama di bulan lalu.
+const SYSTEM_PROMPT = `Anda adalah analis operasional senior untuk jaringan kafe KACC (Kopi Aku Coffe Corner). Tugas Anda menganalisa data penjualan menu untuk mengidentifikasi indikasi stock-out (kehabisan stok) dengan membandingkan periode saat ini vs periode yang sama di bulan lalu. Anda juga menganalisa perubahan metode pembayaran.
 
 Aturan output WAJIB:
 1. Bahasa Indonesia.
 2. Angka: gunakan format Rupiah (Rp X Jt) dan qty dengan pemisah ribuan.
-3. Fokus pada: identifikasi item yang kemungkinan out-of-stock, hari kapan stock-out terjadi, estimasi revenue loss, dan prioritas restock.
+3. Fokus pada: identifikasi item yang kemungkinan out-of-stock, hari kapan stock-out terjadi, estimasi revenue loss, prioritas restock, DAN analisa perubahan metode pembayaran.
 4. Bedakan antara:
    - STOCK-OUT (penjualan 0 di hari tertentu padahal hari yang sama bulan lalu laris) - pastikan ini disebut
    - TREND DECLINE (penjualan turun konsisten, bukan 0) - ini bukan stock-out
    - MENU CHANGED (item tidak lagi dijual - qty 0 di semua hari) - berbeda dari stock-out
 5. Sebut nama item dan tanggal spesifik.
-6. Format JSON WAJIB:
+6. Untuk analisa payment method: sebutkan metode yang turun/naik signifikan dengan persen dan estimasi rupiah, kemungkinan penyebab.
+7. Format JSON WAJIB (jangan tambahkan field lain, jangan pakai markdown fence):
 {
-  "narrative": "<paragraf 3-5 kalimat meringkas temuan utama>",
+  "narrative": "<paragraf 4-6 kalimat meringkas temuan utama - stock-out + payment method>",
   "suspectedStockout": ["<item 1 dengan alasan>", "<item 2 dengan alasan>"],
-  "revenueLossEstimate": "<estimasi total revenue loss dari stock-out>",
+  "revenueLossEstimate": "<estimasi total revenue loss dari stock-out dalam Rupiah>",
   "restockPriority": [
     {"item": "<nama>", "priority": "KRITIS|TINGGI|SEDANG", "reason": "<alasan>"}
   ],
-  "recommendations": ["<rekomendasi 1>", "<rekomendasi 2>"]
+  "recommendations": ["<rekomendasi 1>", "<rekomendasi 2>", "<rekomendasi 3>"],
+  "paymentMethodAnalysis": "<paragraf 3-4 kalimat menganalisa perubahan metode pembayaran - mana yang turun/naik, persen perubahan, estimasi rupiah, kemungkinan penyebab, dan dampak bisnis>"
 }
 
-JANGAN sertakan markdown code fence. Hanya JSON valid.`;
+PENTING: Output HANYA JSON valid, tanpa markdown code fence, tanpa teks tambahan sebelum/sesudah JSON.`;
 
 export async function POST(request: Request) {
   let body: StockoutRequest;
@@ -415,6 +417,72 @@ export async function POST(request: Request) {
 
   const totalRevenueLoss = topSuspected.reduce((s, a) => s + a.revenueLoss, 0);
 
+  // ===== PAYMENT METHOD COMPARISON (curr vs prev) =====
+  interface PaymentAgg {
+    payment: string;
+    prevRevenue: number;
+    currRevenue: number;
+    prevTransactions: number;
+    currTransactions: number;
+    revenueDeltaPct: number | null;
+    txnDeltaPct: number | null;
+    prevShare: number; // % of total prev revenue
+    currShare: number; // % of total curr revenue
+    revenueChange: number; // curr - prev (negative = loss)
+  }
+
+  function aggregatePayment(records: TransactionRecord[]): Map<string, { revenue: number; txns: Set<string> }> {
+    const map = new Map<string, { revenue: number; txns: Set<string> }>();
+    for (const r of records) {
+      if (r.status !== "Close") continue;
+      const p = r.payment || "Unknown";
+      if (!map.has(p)) map.set(p, { revenue: 0, txns: new Set() });
+      const e = map.get(p)!;
+      e.revenue += r.grandTotal;
+      e.txns.add(r.txn);
+    }
+    return map;
+  }
+
+  const currPayAgg = aggregatePayment(filteredCurrent);
+  const prevPayAgg = aggregatePayment(filteredPrev);
+  const totalCurrRev = [...currPayAgg.values()].reduce((s, e) => s + e.revenue, 0);
+  const totalPrevRev = [...prevPayAgg.values()].reduce((s, e) => s + e.revenue, 0);
+
+  const allPayments = new Set<string>([...currPayAgg.keys(), ...prevPayAgg.keys()]);
+  const paymentAnalyses: PaymentAgg[] = [];
+  for (const p of allPayments) {
+    const c = currPayAgg.get(p);
+    const pr = prevPayAgg.get(p);
+    const currRevenue = c?.revenue ?? 0;
+    const prevRevenue = pr?.revenue ?? 0;
+    const currTxns = c?.txns.size ?? 0;
+    const prevTxns = pr?.txns.size ?? 0;
+    paymentAnalyses.push({
+      payment: p,
+      prevRevenue,
+      currRevenue,
+      prevTransactions: prevTxns,
+      currTransactions: currTxns,
+      revenueDeltaPct: prevRevenue > 0 ? ((currRevenue - prevRevenue) / prevRevenue) * 100 : null,
+      txnDeltaPct: prevTxns > 0 ? ((currTxns - prevTxns) / prevTxns) * 100 : null,
+      prevShare: totalPrevRev > 0 ? (prevRevenue / totalPrevRev) * 100 : 0,
+      currShare: totalCurrRev > 0 ? (currRevenue / totalCurrRev) * 100 : 0,
+      revenueChange: currRevenue - prevRevenue,
+    });
+  }
+  // Sort by revenue change ascending (biggest losses first)
+  paymentAnalyses.sort((a, b) => a.revenueChange - b.revenueChange);
+
+  const paymentStr = paymentAnalyses
+    .map((p) => {
+      const revDelta = p.revenueDeltaPct !== null ? formatPct(p.revenueDeltaPct) : "n/a";
+      const txnDelta = p.txnDeltaPct !== null ? formatPct(p.txnDeltaPct) : "n/a";
+      const sign = p.revenueChange < 0 ? "↓" : p.revenueChange > 0 ? "↑" : "=";
+      return `${p.payment}: revenue ${formatRupiah(p.currRevenue)} (${revDelta} vs prev ${formatRupiah(p.prevRevenue)}) | txn ${formatNumber(p.currTransactions)} (${txnDelta}) | share ${formatPct(p.currShare)} (prev ${formatPct(p.prevShare)}) ${sign}`;
+    })
+    .join("\n");
+
   const userPrompt = `Analisa data penjualan KACC untuk deteksi stock-out.
 
 PERIODE:
@@ -427,12 +495,16 @@ ${itemsStr}
 
 TOTAL ESTIMASI REVENUE LOSS dari item-item di atas: ${formatRupiah(totalRevenueLoss)}
 
+=== PERBANDINGAN METODE PEMBAYARAN (curr vs prev) ===
+${paymentStr}
+
 Tolong analisa dan hasilkan:
-1. narrative: paragraf 3-5 kalimat meringkas temuan utama - berapa item terindikasi stock-out, total revenue loss, pola yang terlihat.
-2. suspectedStockout: list item yang MENURUT ANDA paling likely out-of-stock (bukan trend decline), dengan alasan spesifik (mis. "CAPPUCCINO: qty 0 di 3 hari berturut-turut padahal bulan lalu di hari yang sama rata-rata 50 cup/hari").
+1. narrative: paragraf 3-5 kalimat meringkas temuan utama - berapa item terindikasi stock-out, total revenue loss, pola yang terlihat, DAN ringkasan perubahan metode pembayaran (mana yang naik/turun signifikan).
+2. suspectedStockout: list item yang MENURUT ANDA paling likely out-of-stock (bukan trend decline), dengan alasan spesifik.
 3. revenueLossEstimate: estimasi total rupiah hilang dari stock-out (bukan dari trend decline).
 4. restockPriority: top 5 item yang perlu diprioritaskan restock, dengan priority KRITIS/TINGGI/SEDANG dan reason.
-5. recommendations: 2-3 rekomendasi operasional (mis. "Cek inventory CAPPUCCINO di outlet X", "Implementasi alert stok minimum", dll).
+5. recommendations: 2-3 rekomendasi operasional, termasuk terkait metode pembayaran yang turun (mis. "Investigasi penurunan SHOPEEFOOD - cek kerjasama merchant", "Promosi Cash untuk boost share").
+6. paymentMethodAnalysis: paragraf 2-3 kalimat menganalisa perubahan metode pembayaran - mana yang turun/naik, kemungkinan penyebab, dan dampaknya ke bisnis.
 
 PENTING: Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari TREND DECLINE (penjualan turun tapi masih ada). Hanya masukkan ke suspectedStockout kalau benar-benar indikasi stock-out.`;
 
@@ -444,21 +516,48 @@ PENTING: Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari 
         { role: "user", content: userPrompt },
       ],
       temperature: 0.4,
-      max_tokens: 1200,
+      max_tokens: 2500,
     });
 
     const raw = completion.choices?.[0]?.message?.content ?? "";
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+
+    // Try multiple JSON extraction strategies since model may truncate or add prose
     let parsed: {
       narrative?: string;
       suspectedStockout?: string[];
       revenueLossEstimate?: string;
       restockPriority?: Array<{ item: string; priority: string; reason: string }>;
       recommendations?: string[];
-    };
-    try {
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { narrative: raw };
-    } catch {
+      paymentMethodAnalysis?: string;
+    } = {};
+
+    // Strategy 1: try to find complete JSON object
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        // Strategy 2: maybe truncated - try to repair by closing braces
+        const truncated = jsonMatch[0];
+        const openBraces = (truncated.match(/\{/g) || []).length;
+        const closeBraces = (truncated.match(/\}/g) || []).length;
+        const openBrackets = (truncated.match(/\[/g) || []).length;
+        const closeBrackets = (truncated.match(/\]/g) || []).length;
+        let repaired = truncated;
+        // Close any unclosed arrays
+        for (let i = 0; i < openBrackets - closeBrackets; i++) repaired += "]";
+        // Close any unclosed objects
+        for (let i = 0; i < openBraces - closeBraces; i++) repaired += "}";
+        // Remove trailing comma if any
+        repaired = repaired.replace(/,\s*([\]}])/g, "$1");
+        try {
+          parsed = JSON.parse(repaired);
+        } catch {
+          // Strategy 3: fallback - treat whole output as narrative
+          parsed = { narrative: raw };
+        }
+      }
+    } else {
       parsed = { narrative: raw };
     }
 
@@ -470,6 +569,7 @@ PENTING: Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari 
       revenueLossEstimate: parsed.revenueLossEstimate || formatRupiah(totalRevenueLoss),
       restockPriority: Array.isArray(parsed.restockPriority) ? parsed.restockPriority : [],
       recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+      paymentMethodAnalysis: parsed.paymentMethodAnalysis || "",
       // Also return raw item analyses for UI table
       itemAnalyses: topSuspected.map((a) => ({
         item: a.item,
@@ -489,12 +589,16 @@ PENTING: Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari 
         prevPeriodDays: a.prevPeriodDays,
         dailyBreakdown: a.dailyBreakdown,
       })),
+      // Payment method comparison data
+      paymentAnalyses,
       meta: {
         currentDateRange: body.currentDateRange,
         prevDateRange,
         totalItemsAnalyzed: allItems.size,
         suspectedItemsCount: topSuspected.length,
         totalRevenueLossRaw: totalRevenueLoss,
+        totalCurrRevenue: totalCurrRev,
+        totalPrevRevenue: totalPrevRev,
       },
       generatedAt: new Date().toISOString(),
     });
@@ -508,6 +612,7 @@ PENTING: Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari 
       revenueLossEstimate: formatRupiah(totalRevenueLoss),
       restockPriority: [],
       recommendations: [],
+      paymentMethodAnalysis: "",
       itemAnalyses: topSuspected.map((a) => ({
         item: a.item,
         category: a.category,
@@ -526,12 +631,15 @@ PENTING: Bedakan STOCK-OUT (qty 0 di hari tertentu padahal biasanya laris) dari 
         prevPeriodDays: a.prevPeriodDays,
         dailyBreakdown: a.dailyBreakdown,
       })),
+      paymentAnalyses,
       meta: {
         currentDateRange: body.currentDateRange,
         prevDateRange,
         totalItemsAnalyzed: allItems.size,
         suspectedItemsCount: topSuspected.length,
         totalRevenueLossRaw: totalRevenueLoss,
+        totalCurrRevenue: totalCurrRev,
+        totalPrevRevenue: totalPrevRev,
       },
       generatedAt: new Date().toISOString(),
       error: message,
