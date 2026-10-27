@@ -46,6 +46,9 @@ import {
   computeOutletAgg,
   computePaymentAgg,
   formatDateLong,
+  findConsistentOutlets,
+  findConsistentOutletsByPct,
+  filterToConsistentOutlets,
 } from "@/lib/dashboard/aggregate";
 import type { DashboardData, HeatmapCell } from "@/lib/types";
 import type { SheetSourceDTO } from "@/lib/sheet-sources";
@@ -293,9 +296,34 @@ export default function Home() {
 
   // ----- Apply filters & aggregate -----
   const allRecords = data?.records ?? [];
-  const filteredRecords = useMemo(
+  const baseFilteredRecords = useMemo(
     () => applyFilter(allRecords, filterState),
     [allRecords, filterState],
+  );
+
+  // ----- Outlet consistency filter -----
+  // Banyak outlet KACC jadwalnya partial (weekend-only, hari kerja saja).
+  // Saat compare periode ini vs bulan lalu, outlet yang baru buka/tutup bisa bias trend.
+  // Toggle ini filter ke outlet yang konsisten aktif sepanjang periode.
+  const outletConsistency = store.outletConsistency;
+  const consistentOutletSet = useMemo(() => {
+    if (outletConsistency === "off") return new Set<string>();
+    if (outletConsistency === "strict") {
+      return findConsistentOutlets(baseFilteredRecords, dateStart, dateEnd);
+    }
+    return findConsistentOutletsByPct(baseFilteredRecords, dateStart, dateEnd, 0.8);
+  }, [outletConsistency, baseFilteredRecords, dateStart, dateEnd]);
+
+  const filteredRecords = useMemo(() => {
+    if (outletConsistency === "off") return baseFilteredRecords;
+    return filterToConsistentOutlets(baseFilteredRecords, consistentOutletSet);
+  }, [outletConsistency, baseFilteredRecords, consistentOutletSet]);
+
+  // Compute consistent outlet count for display
+  const consistentOutletCount = consistentOutletSet.size;
+  const totalOutletCount = useMemo(
+    () => new Set(baseFilteredRecords.map((r) => r.outlet)).size,
+    [baseFilteredRecords],
   );
 
   const kpi = useMemo(() => computeKpi(filteredRecords), [filteredRecords]);
@@ -592,6 +620,28 @@ export default function Home() {
                   {crossSheetUnavailableReason || "Data bulan lalu tidak tersedia"}
                 </span>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Outlet consistency banner - explain why filtering */}
+        {outletConsistency !== "off" && (
+          <div className="rounded-lg border border-teal-500/30 bg-teal-500/5 px-3 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-teal-300">
+                Filter Outlet Konsisten Aktif
+              </span>
+              <span className="text-muted-foreground">
+                Mode: <span className="text-foreground">
+                  {outletConsistency === "strict" ? "100% hari aktif (strict)" : "≥ 80% hari aktif (permissive)"}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                • Menampilkan <span className="font-bold text-foreground">{consistentOutletCount}</span> dari {totalOutletCount} outlet
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                💡 Hanya outlet yang konsisten aktif sepanjang periode yang dihitung - supaya perbandingan tren harian apple-to-apple (tanpa bias dari outlet yang buka/tutup di tanggal tertentu)
+              </span>
             </div>
           </div>
         )}

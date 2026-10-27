@@ -29,6 +29,10 @@ interface DashboardStoreState {
   crossSheetAvailable: boolean;
   crossSheetUnavailableReason: string;
 
+  // Outlet consistency filter (hanya outlet yang aktif sepanjang periode)
+  // 'off' = tampilkan semua outlet, 'strict' = 100% aktif, 'permissive' = min 80% aktif
+  outletConsistency: "off" | "strict" | "permissive";
+
   // Insight state
   insightLoading: boolean;
   insightNarrative: string;
@@ -63,6 +67,9 @@ interface DashboardStoreState {
     unavailableReason?: string;
   }) => void;
   resetCrossSheet: () => void;
+
+  // Outlet consistency actions
+  setOutletConsistency: (mode: "off" | "strict" | "permissive") => void;
 
   setInsight: (data: {
     narrative: string;
@@ -155,6 +162,9 @@ export const useDashboardStore = create<DashboardStoreState>((set, get) => ({
   crossSheetAvailable: false,
   crossSheetUnavailableReason: "",
 
+  // Outlet consistency filter
+  outletConsistency: "off",
+
   insightLoading: false,
   insightNarrative: "",
   insightHighlights: [],
@@ -243,6 +253,8 @@ export const useDashboardStore = create<DashboardStoreState>((set, get) => ({
       crossSheetAvailable: false,
       crossSheetUnavailableReason: "",
     }),
+
+  setOutletConsistency: (mode) => set({ outletConsistency: mode }),
 
   setInsight: (data) =>
     set({

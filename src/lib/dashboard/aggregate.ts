@@ -41,6 +41,143 @@ export function applyFilter(records: TransactionRecord[], f: FilterState): Trans
   });
 }
 
+/**
+ * Outlet consistency helpers - untuk handle outlet yang buka tidak dari tanggal 1.
+ * Banyak outlet KACC jadwalnya partial (weekend-only, hari kerja saja, dll).
+ * Saat compare periode ini vs bulan lalu, outlet yang baru buka/tutup bisa bias trend.
+ */
+
+export interface OutletActivity {
+  outlet: string;
+  firstSaleDate: string;
+  lastSaleDate: string;
+  activeDates: Set<string>;
+  activeDaysCount: number;
+  totalRevenue: number;
+}
+
+export function computeOutletActivity(
+  records: TransactionRecord[],
+): Map<string, OutletActivity> {
+  const map = new Map<string, OutletActivity>();
+  for (const r of records) {
+    if (r.status !== "Close") continue;
+    const o = r.outlet;
+    if (!o) continue;
+    if (!map.has(o)) {
+      map.set(o, {
+        outlet: o,
+        firstSaleDate: r.date,
+        lastSaleDate: r.date,
+        activeDates: new Set(),
+        activeDaysCount: 0,
+        totalRevenue: 0,
+      });
+    }
+    const e = map.get(o)!;
+    if (r.date && (!e.firstSaleDate || r.date < e.firstSaleDate)) e.firstSaleDate = r.date;
+    if (r.date && (!e.lastSaleDate || r.date > e.lastSaleDate)) e.lastSaleDate = r.date;
+    if (r.date) e.activeDates.add(r.date);
+    e.totalRevenue += r.grandTotal;
+  }
+  for (const e of map.values()) {
+    e.activeDaysCount = e.activeDates.size;
+  }
+  return map;
+}
+
+/**
+ * Tentukan outlet mana yang "konsisten" - aktif di SEMUA tanggal dari dateStart → dateEnd.
+ * Kalau dateStart/dateEnd kosong, fallback ke range data sebenarnya.
+ */
+export function findConsistentOutlets(
+  records: TransactionRecord[],
+  dateStart: string,
+  dateEnd: string,
+): Set<string> {
+  let effectiveStart = dateStart;
+  let effectiveEnd = dateEnd;
+  if (!effectiveStart || !effectiveEnd) {
+    let minDate = "9999-12-31";
+    let maxDate = "0000-01-01";
+    for (const r of records) {
+      if (r.date && r.date < minDate) minDate = r.date;
+      if (r.date && r.date > maxDate) maxDate = r.date;
+    }
+    if (!effectiveStart) effectiveStart = minDate === "9999-12-31" ? "" : minDate;
+    if (!effectiveEnd) effectiveEnd = maxDate === "0000-01-01" ? "" : maxDate;
+  }
+  if (!effectiveStart || !effectiveEnd) return new Set();
+
+  const dateList = buildDateList(effectiveStart, effectiveEnd);
+  if (dateList.length === 0) return new Set();
+  const fullDateSet = new Set(dateList);
+
+  const activity = computeOutletActivity(records);
+  const consistent = new Set<string>();
+  for (const [outlet, act] of activity) {
+    let allActive = true;
+    for (const d of fullDateSet) {
+      if (!act.activeDates.has(d)) {
+        allActive = false;
+        break;
+      }
+    }
+    if (allActive) consistent.add(outlet);
+  }
+  return consistent;
+}
+
+/**
+ * Versi permisif: outlet dianggap konsisten kalau aktif di minimal `minActivePct` (default 80%)
+ * dari tanggal di periode. Berguna kalau strict 100% terlalu ketat (mis. hari libur nasional).
+ */
+export function findConsistentOutletsByPct(
+  records: TransactionRecord[],
+  dateStart: string,
+  dateEnd: string,
+  minActivePct = 0.8,
+): Set<string> {
+  let effectiveStart = dateStart;
+  let effectiveEnd = dateEnd;
+  if (!effectiveStart || !effectiveEnd) {
+    let minDate = "9999-12-31";
+    let maxDate = "0000-01-01";
+    for (const r of records) {
+      if (r.date && r.date < minDate) minDate = r.date;
+      if (r.date && r.date > maxDate) maxDate = r.date;
+    }
+    if (!effectiveStart) effectiveStart = minDate === "9999-12-31" ? "" : minDate;
+    if (!effectiveEnd) effectiveEnd = maxDate === "0000-01-01" ? "" : maxDate;
+  }
+  if (!effectiveStart || !effectiveEnd) return new Set();
+
+  const dateList = buildDateList(effectiveStart, effectiveEnd);
+  if (dateList.length === 0) return new Set();
+  const minDaysRequired = Math.ceil(dateList.length * minActivePct);
+
+  const activity = computeOutletActivity(records);
+  const consistent = new Set<string>();
+  for (const [outlet, act] of activity) {
+    if (act.activeDaysCount >= minDaysRequired) {
+      consistent.add(outlet);
+    }
+  }
+  return consistent;
+}
+
+/**
+ * Filter records hanya dari outlet yang konsisten.
+ * Dipakai untuk trend harian supaya perbandingan apple-to-apple.
+ */
+export function filterToConsistentOutlets(
+  records: TransactionRecord[],
+  consistentOutlets: Set<string>,
+): TransactionRecord[] {
+  if (consistentOutlets.size === 0) return records;
+  return records.filter((r) => consistentOutlets.has(r.outlet));
+}
+
 export function computeKpi(records: TransactionRecord[]): KpiSummary {
   let revenue = 0;
   let items = 0;

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Calendar, Store, CreditCard, Coffee, X, ChevronDown, GitCompareArrows, RotateCcw, CalendarClock, Loader2 } from "lucide-react";
+import { Calendar, Store, CreditCard, Coffee, X, ChevronDown, GitCompareArrows, RotateCcw, CalendarClock, Loader2, Filter, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
@@ -55,6 +56,9 @@ export function FilterBar({
     // Cross-sheet compare state
     crossSheetCompareEnabled,
     crossSheetLoading,
+    // Outlet consistency state
+    outletConsistency,
+    setOutletConsistency,
     crossSheetAvailable,
     crossSheetPrevSourceLabel,
     crossSheetPrevDateStart,
@@ -353,6 +357,77 @@ export function FilterBar({
             )}
           </Button>
         )}
+
+        {/* Outlet consistency filter - handle outlet yang buka tidak dari tanggal 1 */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10",
+                outletConsistency !== "off" && "border-teal-500/40 bg-teal-500/15 text-teal-300",
+              )}
+              title="Filter outlet yang konsisten aktif sepanjang periode - untuk hindari bias karena outlet buka/tutup di tanggal tertentu"
+            >
+              <Filter className="h-3.5 w-3.5" />
+              <span>Outlet Konsisten</span>
+              {outletConsistency !== "off" && (
+                <Badge variant="outline" className="h-4 px-1 text-[9px] border-teal-500/40 bg-teal-500/10 text-teal-300">
+                  {outletConsistency === "strict" ? "100%" : "≥80%"}
+                </Badge>
+              )}
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[300px]">
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Filter Outlet Konsisten
+            </DropdownMenuLabel>
+            <DropdownMenuItem
+              className="text-xs"
+              onClick={() => setOutletConsistency("off")}
+            >
+              <div className="flex w-full items-center justify-between">
+                <div>
+                  <div className="font-medium">Semua Outlet</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Tampilkan semua outlet (termasuk yang partial / baru buka)
+                  </div>
+                </div>
+                {outletConsistency === "off" && <Check className="h-3 w-3 text-emerald-400" />}
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-xs"
+              onClick={() => setOutletConsistency("permissive")}
+            >
+              <div className="flex w-full items-center justify-between">
+                <div>
+                  <div className="font-medium">Konsisten ≥ 80% hari</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Hanya outlet aktif minimal 80% hari di periode ini. Cocok untuk compare trend.
+                  </div>
+                </div>
+                {outletConsistency === "permissive" && <Check className="h-3 w-3 text-emerald-400" />}
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-xs"
+              onClick={() => setOutletConsistency("strict")}
+            >
+              <div className="flex w-full items-center justify-between">
+                <div>
+                  <div className="font-medium">Konsisten 100% hari (strict)</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Hanya outlet yang aktif SEMUA hari di periode ini. Paling apple-to-apple.
+                  </div>
+                </div>
+                {outletConsistency === "strict" && <Check className="h-3 w-3 text-emerald-400" />}
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Reset all */}
         {totalActiveFilters > 0 && (
