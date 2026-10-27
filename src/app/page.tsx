@@ -7,6 +7,7 @@ import {
   Clock,
   Coffee,
   Package,
+  PackageX,
   BarChart3,
   Table2,
   CalendarDays,
@@ -32,6 +33,7 @@ import { ItemRankingTable } from "@/components/dashboard/ItemRankingTable";
 import { InsightPanel } from "@/components/dashboard/InsightPanel";
 import { SheetManagerModal } from "@/components/dashboard/SheetManagerModal";
 import { HourlyDrilldownDialog } from "@/components/dashboard/HourlyDrilldownDialog";
+import { StockoutAnalysisDialog } from "@/components/dashboard/StockoutAnalysisDialog";
 import { useDashboardStore, computePresetRange } from "@/lib/dashboard/store";
 import {
   applyFilter,
@@ -63,6 +65,9 @@ export default function Home() {
 
   // Hourly drill-down state
   const [drilldownHour, setDrilldownHour] = useState<number | null>(null);
+
+  // Stockout analysis dialog state
+  const [stockoutOpen, setStockoutOpen] = useState(false);
 
   // Apply initial preset based on actual data range
   const dataRange = data?.meta.dateRange ?? { start: "", end: "" };
@@ -655,6 +660,41 @@ export default function Home() {
           />
         </div>
 
+        {/* Stock-out Analysis - deteksi item kehabisan stok dengan AI */}
+        <SectionCard
+          title="Analisa Indikasi Stock-Out"
+          subtitle="AI deteksi menu yang kemungkinan kehabisan stok dengan compare vs tanggal yang sama bulan lalu"
+          icon={<PackageX className="h-4 w-4 text-orange-300" />}
+          action={
+            <Button
+              size="sm"
+              className="gap-1.5 bg-orange-500/15 text-xs text-orange-300 hover:bg-orange-500/25"
+              onClick={() => setStockoutOpen(true)}
+              disabled={!activeSheetId || !dateStart || !dateEnd}
+            >
+              <PackageX className="h-3.5 w-3.5" />
+              Analisa Stock-Out
+            </Button>
+          }
+        >
+          <div className="flex flex-col gap-2 py-2 text-xs text-muted-foreground">
+            <p>
+              Klik <span className="font-medium text-orange-300">Analisa Stock-Out</span> untuk
+              menjalankan AI deteksi stock-out. Sistem akan:
+            </p>
+            <ul className="ml-4 list-disc space-y-0.5 text-[11px]">
+              <li>Compare qty penjualan setiap menu di periode ini vs tanggal yang sama bulan lalu</li>
+              <li>Identifikasi item dengan penurunan drastis atau qty = 0 di hari tertentu</li>
+              <li>Hitung estimasi revenue loss dari stock-out</li>
+              <li>Berikan prioritas restock + rekomendasi operasional</li>
+            </ul>
+            <p className="text-[10px]">
+              💡 Tip: Untuk hasil terbaik, pastikan sheet bulan lalu sudah terdaftar
+              (lihat tombol &quot;vs Bulan Lalu&quot;). Tanpa sheet bulan lalu, analisa tidak bisa jalan.
+            </p>
+          </div>
+        </SectionCard>
+
         {/* Top outlets + Payment mix */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <SectionCard
@@ -768,6 +808,20 @@ export default function Home() {
         hour={drilldownHour}
         records={filteredRecords}
         dateRange={{ start: dateStart, end: dateEnd }}
+      />
+
+      {/* Stock-out analysis dialog - AI detect items kehabisan stok */}
+      <StockoutAnalysisDialog
+        open={stockoutOpen}
+        onOpenChange={setStockoutOpen}
+        activeSourceId={activeSheetId}
+        currentDateRange={{ start: dateStart, end: dateEnd }}
+        filters={{
+          outlets: store.outlets,
+          payments: store.payments,
+          itemCategories: store.itemCategories,
+          menuTypes: store.menuTypes,
+        }}
       />
     </main>
   );
