@@ -119,18 +119,49 @@ async function fetchSheetData(
   gid: string,
 ): Promise<{ text: string; url: string }> {
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: { "User-Agent": "KACC-Dashboard/1.0" },
-    redirect: "follow",
-  });
-  if (!res.ok) {
-    throw new Error(`Google Sheets fetch gagal: HTTP ${res.status}. Pastikan URL benar dan sheet ada.`);
+  const fetchStart = Date.now();
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      cache: "no-store",
+      headers: { "User-Agent": "KACC-Dashboard/1.0" },
+      signal: AbortSignal.timeout(30000), // 30s timeout - prevent hanging in production
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[sheets] Network error fetching ${url}: ${msg}`);
+    if (msg.includes("timeout") || msg.includes("abort")) {
+      throw new Error(
+        `Timeout saat fetch Google Sheets (30s). Server production mungkin tidak bisa reach Google. Cek firewall/proxy. Detail: ${msg}`,
+      );
+    }
+    throw new Error(
+      `Network error saat fetch Google Sheets: ${msg}. Server production mungkin tidak punya akses internet.`,
+    );
   }
+  const fetchMs = Date.now() - fetchStart;
+
+  if (!res.ok) {
+    console.error(`[sheets] HTTP ${res.status} fetching ${url} (${fetchMs}ms)`);
+    let hint = "";
+    if (res.status === 403) {
+      hint = " Sheet harus di-share sebagai 'Anyone with link can view' (tombol Share di Google Sheets).";
+    } else if (res.status === 404) {
+      hint = " Sheet tidak ditemukan. Cek sheetId benar atau sheet sudah di-delete.";
+    } else if (res.status === 401) {
+      hint = " Authentication required. Sheet kemungkinan private.";
+    } else if (res.status >= 500) {
+      hint = " Google Sheets server error. Coba lagi nanti.";
+    }
+    throw new Error(`Google Sheets fetch gagal: HTTP ${res.status} (${fetchMs}ms).${hint}`);
+  }
+
   const text = await res.text();
+  console.log(`[sheets] Fetched ${text.length} bytes from ${url} (${fetchMs}ms)`);
 
   // Detect Google login page (private sheet) - response is HTML, not CSV
   if (text.startsWith("<") || text.toLowerCase().includes("<!doctype html")) {
+    console.error(`[sheets] Got HTML response (not CSV) - sheet is private. First 200 chars: ${text.slice(0, 200)}`);
     throw new Error(
       "Sheet ini PRIVATE / tidak public. Set sharing ke 'Anyone with link can view' di Google Sheets (tombol Share kanan atas).",
     );
@@ -215,9 +246,11 @@ export async function GET(request: Request) {
     return NextResponse.json(data);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    console.error(`[sheets] Error fetching sheet "${active.label}" (id=${active.id}): ${message}`);
     // Serve stale cache if available
     const entry = cache.get(cacheKey);
     if (entry) {
+      console.log(`[sheets] Serving stale cache for sheet ${active.id} (fetched ${Date.now() - entry.fetchedAt}ms ago)`);
       return NextResponse.json(
         {
           ...entry.data,
@@ -232,6 +265,15 @@ export async function GET(request: Request) {
         error: message,
         sheetSourceId: active.id,
         sheetLabel: active.label,
+        sheetId: active.sheetId,
+        gid: active.gid,
+        debug: {
+          hasDataStart: !!active.dataStart,
+          hasDataEnd: !!active.dataEnd,
+          hasRowCount: active.rowCount !== null,
+          lastFetchedAt: active.lastFetchedAt,
+          hint: "Visit /api/health for full diagnostic. Common causes: 1) Sheet is private (set 'Anyone with link can view' in Google Sheets), 2) Production server cannot reach Google (firewall/network), 3) Sheet was deleted or moved.",
+        },
       },
       { status: 502 },
     );

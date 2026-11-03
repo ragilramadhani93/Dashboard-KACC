@@ -107,7 +107,9 @@ export default function Home() {
         const errBody = await res.json().catch(() => ({}));
         const errMsg = errBody?.error || `HTTP ${res.status}`;
         const errLabel = errBody?.sheetLabel ? ` (sheet: ${errBody.sheetLabel})` : "";
-        throw new Error(`${errMsg}${errLabel}`);
+        // Include debug hint if available
+        const debugHint = errBody?.debug?.hint ? `\n\n💡 ${errBody.debug.hint}` : "";
+        throw new Error(`${errMsg}${errLabel}${debugHint}`);
       }
       const json: DashboardData & { warning?: string } = await res.json();
       if (json.warning) setWarning(json.warning);
@@ -473,14 +475,14 @@ export default function Home() {
     const activeSheet = sources.find((s) => s.isActive);
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
-        <div className="max-w-md rounded-lg border border-red-500/30 bg-red-500/5 p-6">
+        <div className="max-w-lg rounded-lg border border-red-500/30 bg-red-500/5 p-6">
           <div className="flex items-start gap-3">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
             <div className="flex-1">
               <p className="mb-1 text-sm font-semibold text-red-400">
                 Gagal memuat data
               </p>
-              <p className="mb-3 text-xs text-muted-foreground">{error}</p>
+              <p className="mb-3 whitespace-pre-line text-xs text-muted-foreground">{error}</p>
               {activeSheet && (
                 <div className="rounded-md bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
                   Sheet aktif: <strong>{activeSheet.label}</strong>
@@ -494,6 +496,18 @@ export default function Home() {
                   </ul>
                 </div>
               )}
+              <div className="mt-3 rounded-md bg-white/5 px-3 py-2 text-[10px] text-muted-foreground">
+                💡 Untuk diagnose lengkap, buka endpoint{" "}
+                <a
+                  href="/api/health"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-emerald-400 underline hover:text-emerald-300"
+                >
+                  /api/health
+                </a>{" "}
+                di tab baru. Akan cek: koneksi DB, status sheet aktif, akses Google Sheets dari server, dll.
+              </div>
             </div>
           </div>
         </div>
@@ -504,6 +518,14 @@ export default function Home() {
           >
             Coba lagi
           </button>
+          <a
+            href="/api/health"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs text-cyan-300 hover:bg-cyan-500/20"
+          >
+            Diagnose via /api/health
+          </a>
           <button
             className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs text-foreground hover:bg-white/10"
             onClick={() => setManagerOpen(true)}
