@@ -122,11 +122,18 @@ async function fetchSheetData(
   const fetchStart = Date.now();
   let res: Response;
   try {
-    res = await fetch(url, {
-      cache: "no-store",
-      headers: { "User-Agent": "KACC-Dashboard/1.0" },
-      signal: AbortSignal.timeout(30000), // 30s timeout - prevent hanging in production
-    });
+    // Use AbortController + setTimeout for broader runtime compatibility
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+      res = await fetch(url, {
+        cache: "no-store",
+        headers: { "User-Agent": "KACC-Dashboard/1.0" },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[sheets] Network error fetching ${url}: ${msg}`);

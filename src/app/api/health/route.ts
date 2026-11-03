@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { buildCsvUrl } from "@/lib/sheet-config";
 import {
   ensureSeedSheet,
   getActiveSheetSource,
   listSheetSources,
 } from "@/lib/sheet-sources";
+import { parseCsvToObjects } from "@/lib/csv-parser";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -92,11 +92,18 @@ export async function GET() {
     } else {
       const fetchUrl = `https://docs.google.com/spreadsheets/d/${active.sheetId}/export?format=csv&gid=${active.gid}`;
       const fetchStart = Date.now();
-      const res = await fetch(fetchUrl, {
-        cache: "no-store",
-        headers: { "User-Agent": "KACC-Dashboard/1.0" },
-        signal: AbortSignal.timeout(15000),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      let res: Response;
+      try {
+        res = await fetch(fetchUrl, {
+          cache: "no-store",
+          headers: { "User-Agent": "KACC-Dashboard/1.0" },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       const fetchMs = Date.now() - fetchStart;
       const contentType = res.headers.get("content-type") || "";
       const contentLength = res.headers.get("content-length") || "unknown";
@@ -168,7 +175,6 @@ export async function GET() {
 
   // 5. CSV parser test
   try {
-    const { parseCsvToObjects } = await import("@/lib/csv-parser");
     const testCsv = "a,b,c\n1,2,3\n4,5,6";
     const result = parseCsvToObjects(testCsv);
     checks.csvParser = {
