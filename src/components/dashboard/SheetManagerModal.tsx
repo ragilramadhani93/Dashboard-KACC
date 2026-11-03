@@ -135,6 +135,32 @@ export function SheetManagerModal({
         headers: { "Content-Type": "application/json", "X-Admin-PIN": pin },
         body: JSON.stringify(payload),
       });
+      // Handle non-OK HTTP responses (server error, 500, etc)
+      if (!res.ok) {
+        let errDetail = `HTTP ${res.status}`;
+        try {
+          const errBody = await res.json();
+          errDetail = errBody?.error || errDetail;
+        } catch {
+          // response not JSON
+        }
+        setTestResult({
+          ok: false,
+          error: `Server error: ${errDetail}. ${
+            res.status === 401
+              ? "PIN admin salah."
+              : res.status >= 500
+                ? "Server production bermasalah. Cek /api/health."
+                : ""
+          }`,
+        });
+        toast({
+          title: "Test fetch gagal",
+          description: errDetail,
+          variant: "destructive",
+        });
+        return;
+      }
       const data: TestResult = await res.json();
       setTestResult(data);
       if (data.ok) {

@@ -57,21 +57,38 @@ export async function POST(request: Request) {
   }
 
   const fetchUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  const fetchStart = Date.now();
 
   try {
-    const res = await fetch(fetchUrl, {
-      cache: "no-store",
-      headers: { "User-Agent": "KACC-Dashboard/1.0" },
-    });
+    // Use AbortController for timeout compatibility across runtimes
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    let res: Response;
+    try {
+      res = await fetch(fetchUrl, {
+        cache: "no-store",
+        headers: { "User-Agent": "KACC-Dashboard/1.0" },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    const fetchMs = Date.now() - fetchStart;
 
     if (!res.ok) {
       let reason = "";
       if (res.status === 404) {
         reason =
-          "Sheet tidak ditemukan (404). Cek apakah sheetId benar, atau sheet sudah di-delete.";
+          "Sheet tidak ditemukan (404). Cek apakah sheetId benar (44 karakter), atau sheet sudah di-delete. Tips: buka sheet di Google Sheets, copy URL dari address bar.";
       } else if (res.status === 403) {
         reason =
-          "Akses ditolak (403). Sheet harus di-share sebagai 'Anyone with link can view' (klik Share → General access → Anyone with the link).";
+          "Akses ditolak (403). Sheet harus di-share sebagai 'Anyone with link can view' (klik tombol Share kanan atas → General access → Anyone with the link → Viewer).";
+      } else if (res.status === 401) {
+        reason = "Authentication required (401). Sheet private - set sharing ke 'Anyone with link can view'.";
+      } else if (res.status === 429) {
+        reason = "Rate limited (429). Google membatasi request. Tunggu 1-2 menit lalu coba lagi.";
+      } else if (res.status >= 500) {
+        reason = `Google server error (${res.status}). Coba lagi nanti.`;
       } else {
         reason = `HTTP ${res.status}`;
       }
@@ -83,6 +100,7 @@ export async function POST(request: Request) {
           parsedGid: gid,
           fetchUrl,
           httpStatus: res.status,
+          fetchMs,
         },
         { status: 200 },
       );
@@ -90,16 +108,35 @@ export async function POST(request: Request) {
 
     const text = await res.text();
 
+    // Detect HTML response (private sheet redirect ke login page)
+    if (text.startsWith("<") || text.toLowerCase().includes("<!doctype html")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Sheet PRIVATE - response bukan CSV tapi HTML login page Google. Set sharing ke 'Anyone with link can view' di Google Sheets (tombol Share → General access → Anyone with the link).",
+          parsedSheetId: sheetId,
+          parsedGid: gid,
+          fetchUrl,
+          httpStatus: res.status,
+          fetchMs,
+          responsePreview: text.slice(0, 200),
+        },
+        { status: 200 },
+      );
+    }
+
     if (!text || text.trim().length === 0) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Sheet berhasil di-fetch tapi kosong. Mungkin gid salah (tab tidak ada) atau sheet belum punya data.",
+            "Sheet berhasil di-fetch tapi kosong. Mungkin gid salah (tab tidak ada) atau sheet belum punya data. Tips: buka sheet di Google Sheets, klik tab yang benar, copy URL dengan #gid= yang benar.",
           parsedSheetId: sheetId,
           parsedGid: gid,
           fetchUrl,
           rowCount: 0,
+          fetchMs,
         },
         { status: 200 },
       );
@@ -147,14 +184,25 @@ export async function POST(request: Request) {
       headers,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
+    const msg = e instanceof Error ? e.message : String(e);
+    const fetchMs = Date.now() - fetchStart;
+    let hint = "";
+    if (msg.includes("timeout") || msg.includes("abort")) {
+      hint = " (timeout 20s - server tidak bisa reach Google Sheets, atau sheet terlalu besar)";
+    } else if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
+      hint = " (DNS resolution gagal - server tidak punya akses internet ke Google)";
+    } else if (msg.includes("ECONNREFUSED") || msg.includes("ECONNRESET")) {
+      hint = " (connection refused/reset - firewall block atau network issue)";
+    }
     return NextResponse.json(
       {
         ok: false,
-        error: `Network error saat fetch: ${msg}`,
+        error: `Network error saat fetch: ${msg}${hint}`,
         parsedSheetId: sheetId,
         parsedGid: gid,
         fetchUrl,
+        fetchMs,
+        errorType: e instanceof Error ? e.name : "Unknown",
       },
       { status: 200 },
     );
