@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Database (local SQLite - jangan push ke GitHub, di Vercel pakai Supabase PostgreSQL)
+db/
+*.db
+*.db-journal
+
 
 # typescript
 *.tsbuildinfo
