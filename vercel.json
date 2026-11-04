@@ -1,0 +1,29 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "bun run vercel-build",
+  "installCommand": "bun install",
+  "functions": {
+    "src/app/api/sheets/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/sheets/compare/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/insight/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/insight/stockout/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/insight/snack-analysis/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/export-pdf/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/sheet-sources/test-fetch/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}
