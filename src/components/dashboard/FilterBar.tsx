@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Calendar, Store, CreditCard, Coffee, X, ChevronDown, GitCompareArrows, RotateCcw, CalendarClock, Loader2, Filter, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   useDashboardStore,
-  computeCompareRange,
   type PresetRange,
 } from "@/lib/dashboard/store";
 
@@ -49,6 +48,8 @@ export function FilterBar({
     preset,
     dateStart,
     dateEnd,
+    prevDateStart,
+    prevDateEnd,
     outlets: selOutlets,
     payments: selPayments,
     itemCategories: selCats,
@@ -77,35 +78,69 @@ export function FilterBar({
 
   const [customStart, setCustomStart] = useState(dateStart);
   const [customEnd, setCustomEnd] = useState(dateEnd);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  useEffect(() => {
+    setCustomStart(dateStart);
+    setCustomEnd(dateEnd);
+  }, [dateStart, dateEnd]);
 
   const totalActiveFilters =
     selOutlets.length + selPayments.length + selCats.length;
+  const advancedActiveCount =
+    (compareEnabled ? 1 : 0) +
+    (crossSheetCompareEnabled ? 1 : 0) +
+    (outletConsistency !== "off" ? 1 : 0);
+
+  const activeChips: Array<{ key: string; group: string; label: string; onRemove: () => void }> = [
+    ...selOutlets.map((o) => ({
+      key: `outlet-${o}`,
+      group: "Outlet",
+      label: o.replace(/^KACC\s*-\s*/i, "").trim(),
+      onRemove: () => toggleOutlet(o),
+    })),
+    ...selPayments.map((p) => ({
+      key: `payment-${p}`,
+      group: "Bayar",
+      label: p,
+      onRemove: () => togglePayment(p),
+    })),
+    ...selCats.map((c) => ({
+      key: `cat-${c}`,
+      group: "Kategori",
+      label: c,
+      onRemove: () => toggleItemCategory(c),
+    })),
+  ];
+
+  const activePillClass = "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15";
 
   return (
-    <div className="rounded-xl border border-white/10 bg-card/60 p-3">
+    <div className="rounded-xl border border-border bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">
         {/* Date range presets */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
+              type="button"
               variant="outline"
               size="sm"
-              className="gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10"
+              className="min-h-10 gap-1.5 text-xs"
             >
-              <Calendar className="h-3.5 w-3.5 text-cyan-400" />
+              <Calendar aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
               <span className="font-medium">
                 {PRESET_OPTIONS.find((p) => p.value === preset)?.label ?? "Pilih Rentang"}
               </span>
               <span className="text-muted-foreground">
                 {dateStart === dateEnd
                   ? `(${dateStart})`
-                  : `(${dateStart} → ${dateEnd})`}
+                  : `(${dateStart} s/d ${dateEnd})`}
               </span>
-              <ChevronDown className="h-3 w-3 opacity-60" />
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <DropdownMenuContent align="start" className="w-60">
+            <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
               Rentang Cepat
             </DropdownMenuLabel>
             {PRESET_OPTIONS.map((p) => (
@@ -113,41 +148,48 @@ export function FilterBar({
                 key={p.value}
                 checked={preset === p.value}
                 onCheckedChange={() => setPreset(p.value, dataRange)}
-                className="text-xs"
+                className="min-h-9 text-xs"
               >
                 {p.label}
               </DropdownMenuCheckboxItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Custom Range
+            <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
+              Rentang Kustom
             </DropdownMenuLabel>
-            <div className="flex flex-col gap-2 p-2">
+            <div className="flex flex-col gap-2.5 p-2">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-muted-foreground">Dari</label>
+                <label htmlFor="filter-date-start" className="text-xs text-muted-foreground">
+                  Dari Tanggal
+                </label>
                 <input
+                  id="filter-date-start"
                   type="date"
                   value={customStart}
                   min={dataRange.start}
                   max={dataRange.end}
                   onChange={(e) => setCustomStart(e.target.value)}
-                  className="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-foreground"
+                  className="min-h-9 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-muted-foreground">Sampai</label>
+                <label htmlFor="filter-date-end" className="text-xs text-muted-foreground">
+                  Sampai Tanggal
+                </label>
                 <input
+                  id="filter-date-end"
                   type="date"
                   value={customEnd}
                   min={dataRange.start}
                   max={dataRange.end}
                   onChange={(e) => setCustomEnd(e.target.value)}
-                  className="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-foreground"
+                  className="min-h-9 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
                 />
               </div>
               <Button
+                type="button"
                 size="sm"
-                className="mt-1 h-7 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25"
+                className="mt-1 min-h-9 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
                 onClick={() => {
                   if (customStart && customEnd && customStart <= customEnd) {
                     setDateRange(customStart, customEnd);
@@ -164,31 +206,33 @@ export function FilterBar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               className={cn(
-                "gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10",
-                selOutlets.length > 0 && "border-emerald-500/30 bg-emerald-500/10",
+                "min-h-10 gap-1.5 text-xs",
+                selOutlets.length > 0 && activePillClass,
               )}
             >
-              <Store className="h-3.5 w-3.5 text-emerald-400" />
+              <Store aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
               <span>Outlet</span>
               {selOutlets.length > 0 && (
-                <Badge variant="secondary" className="h-4 px-1 text-[9px] font-bold">
+                <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-semibold">
                   {selOutlets.length}
                 </Badge>
               )}
-              <ChevronDown className="h-3 w-3 opacity-60" />
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="max-h-[400px] w-[280px] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-white/5 px-2 py-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <div className="flex items-center justify-between border-b border-border px-2.5 py-2">
+              <span className="text-xs font-medium text-muted-foreground">
                 {selOutlets.length} dari {outlets.length} dipilih
               </span>
               {selOutlets.length > 0 && (
                 <button
-                  className="text-[10px] text-red-400 hover:underline"
+                  type="button"
+                  className="text-xs font-medium text-red-700 hover:underline dark:text-red-400"
                   onClick={clearOutlets}
                 >
                   Reset
@@ -200,7 +244,7 @@ export function FilterBar({
                 key={o}
                 checked={selOutlets.includes(o)}
                 onCheckedChange={() => toggleOutlet(o)}
-                className="text-xs"
+                className="min-h-9 text-xs"
               >
                 {o.replace(/^KACC\s*-\s*/i, "").trim()}
               </DropdownMenuCheckboxItem>
@@ -212,31 +256,33 @@ export function FilterBar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               className={cn(
-                "gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10",
-                selPayments.length > 0 && "border-amber-500/30 bg-amber-500/10",
+                "min-h-10 gap-1.5 text-xs",
+                selPayments.length > 0 && activePillClass,
               )}
             >
-              <CreditCard className="h-3.5 w-3.5 text-amber-400" />
+              <CreditCard aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
               <span>Pembayaran</span>
               {selPayments.length > 0 && (
-                <Badge variant="secondary" className="h-4 px-1 text-[9px] font-bold">
+                <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-semibold">
                   {selPayments.length}
                 </Badge>
               )}
-              <ChevronDown className="h-3 w-3 opacity-60" />
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[220px]">
-            <div className="flex items-center justify-between border-b border-white/5 px-2 py-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <DropdownMenuContent align="start" className="w-[230px]">
+            <div className="flex items-center justify-between border-b border-border px-2.5 py-2">
+              <span className="text-xs font-medium text-muted-foreground">
                 {selPayments.length} dari {paymentMethods.length} dipilih
               </span>
               {selPayments.length > 0 && (
                 <button
-                  className="text-[10px] text-red-400 hover:underline"
+                  type="button"
+                  className="text-xs font-medium text-red-700 hover:underline dark:text-red-400"
                   onClick={clearPayments}
                 >
                   Reset
@@ -248,7 +294,7 @@ export function FilterBar({
                 key={p}
                 checked={selPayments.includes(p)}
                 onCheckedChange={() => togglePayment(p)}
-                className="text-xs"
+                className="min-h-9 text-xs"
               >
                 {p}
               </DropdownMenuCheckboxItem>
@@ -260,31 +306,33 @@ export function FilterBar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               className={cn(
-                "gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10",
-                selCats.length > 0 && "border-pink-500/30 bg-pink-500/10",
+                "min-h-10 gap-1.5 text-xs",
+                selCats.length > 0 && activePillClass,
               )}
             >
-              <Coffee className="h-3.5 w-3.5 text-pink-400" />
+              <Coffee aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
               <span>Kategori Menu</span>
               {selCats.length > 0 && (
-                <Badge variant="secondary" className="h-4 px-1 text-[9px] font-bold">
+                <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-semibold">
                   {selCats.length}
                 </Badge>
               )}
-              <ChevronDown className="h-3 w-3 opacity-60" />
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[220px]">
-            <div className="flex items-center justify-between border-b border-white/5 px-2 py-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <DropdownMenuContent align="start" className="w-[230px]">
+            <div className="flex items-center justify-between border-b border-border px-2.5 py-2">
+              <span className="text-xs font-medium text-muted-foreground">
                 {selCats.length} dari {itemCategories.length} dipilih
               </span>
               {selCats.length > 0 && (
                 <button
-                  className="text-[10px] text-red-400 hover:underline"
+                  type="button"
+                  className="text-xs font-medium text-red-700 hover:underline dark:text-red-400"
                   onClick={clearItemCategories}
                 >
                   Reset
@@ -296,7 +344,7 @@ export function FilterBar({
                 key={c}
                 checked={selCats.includes(c)}
                 onCheckedChange={() => toggleItemCategory(c)}
-                className="text-xs"
+                className="min-h-9 text-xs"
               >
                 {c}
               </DropdownMenuCheckboxItem>
@@ -304,22 +352,50 @@ export function FilterBar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Compare mode toggle (within-sheet, previous N days) */}
+        {/* Mobile toggle for secondary comparison/consistency controls */}
         <Button
+          type="button"
           variant="outline"
           size="sm"
+          aria-expanded={advancedOpen}
           className={cn(
-            "gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10",
-            compareEnabled && "border-purple-500/40 bg-purple-500/15 text-purple-300",
+            "min-h-10 gap-1.5 text-xs md:hidden",
+            advancedActiveCount > 0 && activePillClass,
+          )}
+          onClick={() => setAdvancedOpen((prev) => !prev)}
+        >
+          <GitCompareArrows aria-hidden="true" className="h-3.5 w-3.5" />
+          <span>Opsi Lanjutan</span>
+          {advancedActiveCount > 0 && (
+            <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-semibold">
+              {advancedActiveCount}
+            </Badge>
+          )}
+          <ChevronDown
+            aria-hidden="true"
+            className={cn("h-3.5 w-3.5 opacity-60 transition-transform", advancedOpen && "rotate-180")}
+          />
+        </Button>
+
+        <div className={cn(advancedOpen ? "contents" : "hidden md:contents")}>
+        {/* Compare mode toggle (within-sheet, previous N days) */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-pressed={compareEnabled}
+          className={cn(
+            "min-h-10 gap-1.5 text-xs",
+            compareEnabled && activePillClass,
           )}
           onClick={() => setCompareEnabled(!compareEnabled)}
           title="Compare dengan periode sebelumnya dalam sheet yang sama (mis. minggu lalu)"
         >
-          <GitCompareArrows className="h-3.5 w-3.5" />
+          <GitCompareArrows aria-hidden="true" className="h-3.5 w-3.5" />
           <span>Compare Mode</span>
           {compareEnabled && (
-            <span className="text-[10px] text-muted-foreground">
-              vs {useDashboardStore.getState().prevDateStart} → {useDashboardStore.getState().prevDateEnd}
+            <span className="text-xs text-muted-foreground">
+              vs {prevDateStart} s/d {prevDateEnd}
             </span>
           )}
         </Button>
@@ -327,130 +403,157 @@ export function FilterBar({
         {/* Cross-sheet compare toggle (vs sheet bulan lalu, same day-of-month) */}
         {onToggleCrossSheetCompare && (
           <Button
+            type="button"
             variant="outline"
             size="sm"
+            aria-pressed={crossSheetCompareEnabled}
             className={cn(
-              "gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10",
-              crossSheetCompareEnabled && "border-amber-500/40 bg-amber-500/15 text-amber-300",
+              "min-h-10 gap-1.5 text-xs",
+              crossSheetCompareEnabled && activePillClass,
             )}
             onClick={onToggleCrossSheetCompare}
             disabled={crossSheetLoading}
             title="Compare dengan tanggal yang sama di sheet bulan lalu (mis. 8-14 Okt vs 8-14 Sep)"
           >
             {crossSheetLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <CalendarClock className="h-3.5 w-3.5" />
+              <CalendarClock aria-hidden="true" className="h-3.5 w-3.5" />
             )}
             <span>vs Bulan Lalu</span>
             {crossSheetCompareEnabled && crossSheetAvailable && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {crossSheetPrevSourceLabel
-                  ? `(${crossSheetPrevSourceLabel}, ${crossSheetPrevDateStart} → ${crossSheetPrevDateEnd})`
-                  : `(${crossSheetPrevDateStart} → ${crossSheetPrevDateEnd})`}
+                  ? `(${crossSheetPrevSourceLabel}, ${crossSheetPrevDateStart} s/d ${crossSheetPrevDateEnd})`
+                  : `(${crossSheetPrevDateStart} s/d ${crossSheetPrevDateEnd})`}
               </span>
             )}
             {crossSheetCompareEnabled && !crossSheetAvailable && !crossSheetLoading && (
-              <Badge variant="outline" className="h-4 px-1 text-[9px] border-red-500/40 bg-red-500/10 text-red-400">
+              <Badge variant="outline" className="h-5 px-1.5 text-[11px] border-destructive/40 bg-destructive/10 text-status-danger">
                 N/A
               </Badge>
             )}
           </Button>
         )}
 
-        {/* Outlet consistency filter - handle outlet yang buka tidak dari tanggal 1 */}
+        {/* Outlet consistency filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               className={cn(
-                "gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10",
-                outletConsistency !== "off" && "border-teal-500/40 bg-teal-500/15 text-teal-300",
+                "min-h-10 gap-1.5 text-xs",
+                outletConsistency !== "off" && activePillClass,
               )}
-              title="Filter outlet yang konsisten aktif sepanjang periode - untuk hindari bias karena outlet buka/tutup di tanggal tertentu"
+              title="Filter outlet yang konsisten aktif sepanjang periode untuk menghindari bias outlet baru"
             >
-              <Filter className="h-3.5 w-3.5" />
+              <Filter aria-hidden="true" className="h-3.5 w-3.5" />
               <span>Outlet Konsisten</span>
               {outletConsistency !== "off" && (
-                <Badge variant="outline" className="h-4 px-1 text-[9px] border-teal-500/40 bg-teal-500/10 text-teal-300">
-                  {outletConsistency === "strict" ? "100%" : "≥80%"}
+                <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-semibold">
+                  {outletConsistency === "strict" ? "100%" : ">=80%"}
                 </Badge>
               )}
-              <ChevronDown className="h-3 w-3 opacity-60" />
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[300px]">
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
               Filter Outlet Konsisten
             </DropdownMenuLabel>
             <DropdownMenuItem
-              className="text-xs"
+              className="min-h-10 text-xs"
               onClick={() => setOutletConsistency("off")}
             >
-              <div className="flex w-full items-center justify-between">
+              <div className="flex w-full items-center justify-between gap-2">
                 <div>
                   <div className="font-medium">Semua Outlet</div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     Tampilkan semua outlet (termasuk yang partial / baru buka)
                   </div>
                 </div>
-                {outletConsistency === "off" && <Check className="h-3 w-3 text-emerald-400" />}
+                {outletConsistency === "off" && <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-primary" />}
               </div>
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="text-xs"
+              className="min-h-10 text-xs"
               onClick={() => setOutletConsistency("permissive")}
             >
-              <div className="flex w-full items-center justify-between">
+              <div className="flex w-full items-center justify-between gap-2">
                 <div>
-                  <div className="font-medium">Konsisten ≥ 80% hari</div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="font-medium">Konsisten minimal 80% hari</div>
+                  <div className="text-xs text-muted-foreground">
                     Hanya outlet aktif minimal 80% hari di periode ini. Cocok untuk compare trend.
                   </div>
                 </div>
-                {outletConsistency === "permissive" && <Check className="h-3 w-3 text-emerald-400" />}
+                {outletConsistency === "permissive" && <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-primary" />}
               </div>
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="text-xs"
+              className="min-h-10 text-xs"
               onClick={() => setOutletConsistency("strict")}
             >
-              <div className="flex w-full items-center justify-between">
+              <div className="flex w-full items-center justify-between gap-2">
                 <div>
                   <div className="font-medium">Konsisten 100% hari (strict)</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    Hanya outlet yang aktif SEMUA hari di periode ini. Paling apple-to-apple.
+                  <div className="text-xs text-muted-foreground">
+                    Hanya outlet aktif semua hari di periode ini. Paling apple-to-apple.
                   </div>
                 </div>
-                {outletConsistency === "strict" && <Check className="h-3 w-3 text-emerald-400" />}
+                {outletConsistency === "strict" && <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-primary" />}
               </div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
 
         {/* Reset all */}
         {totalActiveFilters > 0 && (
           <Button
+            type="button"
             variant="ghost"
             size="sm"
-            className="gap-1 text-xs text-muted-foreground hover:text-red-400"
+            className="min-h-10 gap-1 text-xs text-muted-foreground hover:text-destructive"
             onClick={resetAllFilters}
           >
-            <RotateCcw className="h-3 w-3" />
+            <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
             Reset Filter
-            <X className="h-3 w-3" />
+            <X aria-hidden="true" className="h-3.5 w-3.5" />
           </Button>
         )}
 
         {/* Spacer */}
-        <div className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground">
-          <span className="hidden sm:inline">Data range tersedia:</span>
-          <span className="font-mono">
-            {dataRange.start || "?"} → {dataRange.end || "?"}
+        <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="hidden sm:inline">Data tersedia:</span>
+          <span className="font-mono text-foreground">
+            {dataRange.start || "?"} s/d {dataRange.end || "?"}
           </span>
         </div>
       </div>
+
+      {/* Dismissible active filter chips */}
+      {activeChips.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-border/70 pt-2.5">
+          <span className="mr-1 text-[11px] font-medium text-muted-foreground">
+            Filter aktif:
+          </span>
+          {activeChips.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={chip.onRemove}
+              aria-label={`Hapus filter ${chip.group} ${chip.label}`}
+              className="inline-flex min-h-7 items-center gap-1 rounded-full border border-primary/35 bg-primary/10 px-2.5 py-0.5 text-xs text-primary transition-colors hover:bg-primary/20"
+            >
+              <span className="text-[11px] text-muted-foreground">{chip.group}:</span>
+              <span className="font-medium">{chip.label}</span>
+              <X aria-hidden="true" className="h-3 w-3 opacity-80" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -97,6 +97,9 @@ async function fetchSheetRecords(sheetId: string, gid: string): Promise<{ text: 
     throw new Error(`Cross-sheet fetch failed: HTTP ${res.status}`);
   }
   const text = await res.text();
+  if (text.startsWith("<") || text.toLowerCase().includes("<!doctype html")) {
+    throw new Error("Sheet private / bukan CSV. Set sharing Google Sheets ke 'Anyone with link can view'.");
+  }
   return { text };
 }
 

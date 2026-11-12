@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import ZAI from "z-ai-web-dev-sdk";
+import { generateGeminiJson } from "@/lib/gemini";
 import type { InsightRequest, InsightResponse } from "@/lib/types";
 import { formatRupiah, formatNumber, formatPct } from "@/lib/format";
 
@@ -137,34 +137,12 @@ Tolong hasilkan:
 Kembalikan HANYA JSON valid sesuai format yang ditentukan.`;
 
   try {
-    const ai = await ZAI.create();
-    const completion = await ai.chat.completions.create({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
+    const { parsed } = await generateGeminiJson<Partial<Omit<InsightResponse, "generatedAt">>>({
+      systemPrompt: SYSTEM_PROMPT,
+      userPrompt,
       temperature: 0.4,
-      max_tokens: 900,
+      maxOutputTokens: 2048,
     });
-
-    const raw = completion.choices?.[0]?.message?.content ?? "";
-
-    // Extract JSON from possible markdown wrapping
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    let parsed: Omit<InsightResponse, "generatedAt">;
-    try {
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {
-        narrative: raw,
-        highlights: [],
-        alerts: [],
-      };
-    } catch {
-      parsed = {
-        narrative: raw,
-        highlights: [],
-        alerts: [],
-      };
-    }
 
     const response: InsightResponse = {
       narrative: parsed.narrative || "Tidak ada narasi yang dihasilkan.",

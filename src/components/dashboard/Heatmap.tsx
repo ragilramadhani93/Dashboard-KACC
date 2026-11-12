@@ -16,33 +16,30 @@ interface OutletHeatmapProps {
  * Color scale: dark -> emerald (low to high).
  */
 export function OutletHeatmap({ data, dateList, height = 380 }: OutletHeatmapProps) {
-  const { max, min, avg } = useMemo(() => {
+  const { max, avg } = useMemo(() => {
     let max = 0;
-    let min = Infinity;
     let sum = 0;
     let count = 0;
     for (const row of data) {
       for (const c of row) {
         if (c.revenue > max) max = c.revenue;
-        if (c.revenue < min && c.revenue > 0) min = c.revenue;
         if (c.revenue > 0) {
           sum += c.revenue;
           count++;
         }
       }
     }
-    return { max, min: min === Infinity ? 0 : min, avg: count > 0 ? sum / count : 0 };
+    return { max, avg: count > 0 ? sum / count : 0 };
   }, [data]);
 
-  function getColor(value: number): string {
-    if (value <= 0) return "rgba(255,255,255,0.03)";
+  function getCellToneClass(value: number): string {
+    if (value <= 0) return "bg-muted/50 text-muted-foreground";
     const ratio = max > 0 ? value / max : 0;
-    // emerald gradient
-    if (ratio < 0.2) return "rgba(16,185,129,0.18)";
-    if (ratio < 0.4) return "rgba(16,185,129,0.32)";
-    if (ratio < 0.6) return "rgba(16,185,129,0.55)";
-    if (ratio < 0.8) return "rgba(16,185,129,0.75)";
-    return "rgba(16,185,129,0.95)";
+    if (ratio < 0.2) return "bg-emerald-100 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-200";
+    if (ratio < 0.4) return "bg-emerald-200 text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100";
+    if (ratio < 0.6) return "bg-emerald-300 text-emerald-950 dark:bg-emerald-800 dark:text-white";
+    if (ratio < 0.8) return "bg-emerald-700 text-white dark:bg-emerald-700 dark:text-white";
+    return "bg-emerald-800 text-white dark:bg-emerald-400 dark:text-emerald-950";
   }
 
   if (data.length === 0) {
@@ -55,22 +52,21 @@ export function OutletHeatmap({ data, dateList, height = 380 }: OutletHeatmapPro
 
   return (
     <div className="overflow-auto" style={{ maxHeight: height }}>
-      <table className="w-full border-separate border-spacing-1 text-[10px]">
+      <table className="w-full border-separate border-spacing-1 text-xs">
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 bg-card px-2 py-1 text-left font-medium text-muted-foreground">
+            <th className="sticky left-0 z-10 bg-card px-2 py-1.5 text-left font-medium text-muted-foreground">
               Outlet / Tanggal
             </th>
             {dateList.map((d) => (
               <th
                 key={d}
-                className="px-1 py-1 text-center font-medium text-muted-foreground"
-                style={{ minWidth: 40 }}
+                className="min-w-11 px-1 py-1.5 text-center font-medium text-muted-foreground"
               >
                 {formatDateShort(d)}
               </th>
             ))}
-            <th className="px-2 py-1 text-right font-medium text-muted-foreground">
+            <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">
               Total
             </th>
           </tr>
@@ -81,7 +77,7 @@ export function OutletHeatmap({ data, dateList, height = 380 }: OutletHeatmapPro
             const outletName = outlet.replace(/^KACC\s*-\s*/i, "").trim();
             const rowTotal = row.reduce((s, c) => s + c.revenue, 0);
             return (
-              <tr key={i} className="group">
+              <tr key={i}>
                 <td
                   className="sticky left-0 z-10 bg-card px-2 py-1.5 font-medium text-foreground"
                   title={outlet}
@@ -93,19 +89,21 @@ export function OutletHeatmap({ data, dateList, height = 380 }: OutletHeatmapPro
                 {row.map((c, j) => (
                   <td
                     key={j}
-                    className="h-9 min-w-[40px] cursor-pointer rounded p-0 transition-all hover:ring-1 hover:ring-white/30"
-                    style={{ backgroundColor: getColor(c.revenue) }}
+                    className={cn(
+                      "h-9 min-w-11 rounded p-0 transition-colors hover:ring-1 hover:ring-ring/60",
+                      getCellToneClass(c.revenue),
+                    )}
                     title={`${outletName} | ${formatDateShort(c.date)}: ${formatRupiah(c.revenue, false)} (${c.transactions} txn)`}
                   >
-                    <div className="flex h-full items-center justify-center text-[9px] text-white/80">
-                      {c.revenue > 0 ? formatRupiah(c.revenue, true) : ""}
+                    <div className="flex h-full items-center justify-center px-1 text-[11px] font-medium tabular-nums">
+                      {c.revenue > 0 ? formatRupiah(c.revenue, true) : "-"}
                     </div>
                   </td>
                 ))}
                 <td
                   className={cn(
                     "px-2 py-1.5 text-right font-bold tabular-nums",
-                    rowTotal < avg * 0.5 ? "text-red-400" : "text-foreground",
+                    rowTotal < avg * 0.5 ? "text-red-700 dark:text-red-400" : "text-foreground",
                   )}
                 >
                   {formatRupiah(rowTotal)}
@@ -116,13 +114,19 @@ export function OutletHeatmap({ data, dateList, height = 380 }: OutletHeatmapPro
         </tbody>
       </table>
 
-      {/* Color legend */}
-      <div className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground">
-        <span>Low</span>
-        <div className="h-3 w-32 rounded bg-gradient-to-r from-emerald-500/20 via-emerald-500/55 to-emerald-500/95" />
-        <span>High</span>
-        <span className="ml-auto">
-          Avg: {formatRupiah(avg)} / Max: {formatRupiah(max)}
+      {/* Discrete contrast-safe color legend */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span>Rendah</span>
+        <div className="flex items-center gap-1" aria-hidden="true">
+          <span className="h-3 w-5 rounded-sm bg-emerald-100 dark:bg-emerald-950" />
+          <span className="h-3 w-5 rounded-sm bg-emerald-200 dark:bg-emerald-900" />
+          <span className="h-3 w-5 rounded-sm bg-emerald-300 dark:bg-emerald-800" />
+          <span className="h-3 w-5 rounded-sm bg-emerald-700" />
+          <span className="h-3 w-5 rounded-sm bg-emerald-800 dark:bg-emerald-400" />
+        </div>
+        <span>Tinggi</span>
+        <span className="ml-auto tabular-nums">
+          Rata-rata: {formatRupiah(avg)} / Maks: {formatRupiah(max)}
         </span>
       </div>
     </div>

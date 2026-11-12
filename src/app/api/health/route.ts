@@ -168,10 +168,8 @@ export async function GET() {
     data: {
       nodeEnv: process.env.NODE_ENV || "undefined",
       hasDatabaseUrl: !!process.env.DATABASE_URL,
-      databaseUrlValue: process.env.DATABASE_URL
-        ? process.env.DATABASE_URL.replace(/\/\/[^@]*@/, "//***@")
-        : "(not set - using default)",
       hasAdminPin: !!process.env.ADMIN_PIN,
+      hasGeminiApiKey: !!(process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim()),
       buildId: process.env.NEXT_PUBLIC_BUILD_ID || "(not set)",
       platform: process.platform,
       nodeVersion: process.version,

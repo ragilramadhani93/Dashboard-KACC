@@ -23,23 +23,26 @@ export function SectionCard({
   return (
     <section
       className={cn(
-        "flex flex-col rounded-xl border border-white/10 bg-card/60 p-4",
+        "flex flex-col rounded-xl border border-border bg-card p-4 shadow-xs",
         className,
       )}
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
           {icon && (
-            <div className="rounded-lg bg-white/5 p-1.5">
+            <div
+              aria-hidden="true"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-primary"
+            >
               {icon}
             </div>
           )}
           <div>
-            <h3 className="text-sm font-semibold leading-tight text-foreground">
+            <h2 className="text-sm font-semibold leading-tight text-foreground">
               {title}
-            </h3>
+            </h2>
             {subtitle && (
-              <p className="text-[10px] text-muted-foreground">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {subtitle}
               </p>
             )}

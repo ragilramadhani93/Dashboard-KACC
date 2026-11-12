@@ -208,10 +208,19 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const forceRefresh = url.searchParams.get("refresh") === "1";
 
-  // Ensure DB seeded
-  await ensureSeedSheet();
-
-  const active = await getActiveSheetSource();
+  let active;
+  try {
+    await ensureSeedSheet();
+    active = await getActiveSheetSource();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json(
+      {
+        error: `Database error: ${msg}. Pastikan DATABASE_URL valid dan sudah menjalankan 'prisma db push'.`,
+      },
+      { status: 503 },
+    );
+  }
 
   if (!active) {
     return NextResponse.json(

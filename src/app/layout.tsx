@@ -29,16 +29,28 @@ export const metadata: Metadata = {
   authors: [{ name: "KACC Operations" }],
 };
 
+const THEME_INIT_SCRIPT = `
+try {
+  var saved = localStorage.getItem('kacc-theme');
+  var isDark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.classList.toggle('dark', isDark);
+} catch (e) {}
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className="dark" suppressHydrationWarning>
+    <html lang="id" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <a href="#main-content" className="skip-link">
+          Lewati ke konten utama
+        </a>
         {children}
         <Toaster />
       </body>

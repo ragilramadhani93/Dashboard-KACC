@@ -10,8 +10,16 @@ export const dynamic = "force-dynamic";
 
 // GET - list all sheet sources (no auth needed)
 export async function GET() {
-  const sources = await listSheetSources();
-  return NextResponse.json({ sources });
+  try {
+    const sources = await listSheetSources();
+    return NextResponse.json({ sources });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json(
+      { error: `Database error: ${msg}` },
+      { status: 503 },
+    );
+  }
 }
 
 // POST - add a new sheet source (requires admin PIN)

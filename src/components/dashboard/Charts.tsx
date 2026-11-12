@@ -32,13 +32,12 @@ import { formatDateShort } from "@/lib/dashboard/aggregate";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const CHART_COLORS = {
-  emerald: "#10B981",
-  cyan: "#06B6D4",
-  amber: "#F59E0B",
-  pink: "#EC4899",
-  purple: "#A855F7",
-  slate: "#475569",
-  red: "#EF4444",
+  primary: "var(--chart-1)",
+  emerald: "var(--chart-2)",
+  cobalt: "var(--chart-3)",
+  amber: "var(--chart-4)",
+  danger: "var(--chart-5)",
+  muted: "var(--muted-foreground)",
 };
 
 // ----- Daily Revenue Trend (with optional compare overlay) -----
@@ -75,7 +74,7 @@ export function RevenueTrendChart({ current, previous, compareEnabled, height = 
     <ChartContainer
       config={{
         curr: { label: "Periode Ini", color: CHART_COLORS.emerald },
-        prev: { label: "Periode Sebelumnya", color: CHART_COLORS.amber },
+        prev: { label: "Periode Sebelumnya", color: CHART_COLORS.primary },
       }}
       className="w-full"
       style={{ height }}
@@ -83,26 +82,26 @@ export function RevenueTrendChart({ current, previous, compareEnabled, height = 
       <AreaChart data={merged} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id="colorCurr" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={CHART_COLORS.emerald} stopOpacity={0.45} />
+            <stop offset="0%" stopColor={CHART_COLORS.emerald} stopOpacity={0.35} />
             <stop offset="100%" stopColor={CHART_COLORS.emerald} stopOpacity={0} />
           </linearGradient>
           <linearGradient id="colorPrev" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={CHART_COLORS.amber} stopOpacity={0.3} />
-            <stop offset="100%" stopColor={CHART_COLORS.amber} stopOpacity={0} />
+            <stop offset="0%" stopColor={CHART_COLORS.primary} stopOpacity={0.25} />
+            <stop offset="100%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="label"
-          tick={{ fill: "#94a3b8", fontSize: 10 }}
+          tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           tickLine={false}
-          axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+          axisLine={{ stroke: "var(--border)" }}
         />
         <YAxis
-          tick={{ fill: "#94a3b8", fontSize: 10 }}
+          tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           tickLine={false}
           axisLine={false}
-          width={56}
+          width={60}
           tickFormatter={(v) => formatRupiah(v)}
         />
         <ChartTooltip
@@ -112,7 +111,7 @@ export function RevenueTrendChart({ current, previous, compareEnabled, height = 
                 const labels: Record<string, string> = { curr: "Periode Ini", prev: "Periode Sebelumnya" };
                 return (
                   <div className="flex w-full flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {labels[name as string] ?? name}
                     </span>
                     <span className="font-bold tabular-nums">{formatRupiah(Number(value), false)}</span>
@@ -134,8 +133,8 @@ export function RevenueTrendChart({ current, previous, compareEnabled, height = 
           <Area
             type="monotone"
             dataKey="prev"
-            stroke={CHART_COLORS.amber}
-            strokeWidth={1.5}
+            stroke={CHART_COLORS.primary}
+            strokeWidth={1.75}
             strokeDasharray="4 3"
             fill="url(#colorPrev)"
             dot={false}
@@ -159,19 +158,18 @@ export function TopOutletsChart({ data, height = 320 }: TopOutletsChartProps) {
     revenue: d.revenue,
     transactions: d.transactions,
   }));
-  const maxRev = Math.max(...top.map((t) => t.revenue), 1);
 
   return (
     <ChartContainer
-      config={{ revenue: { label: "Revenue", color: CHART_COLORS.cyan } }}
+      config={{ revenue: { label: "Revenue", color: CHART_COLORS.primary } }}
       className="w-full"
       style={{ height }}
     >
       <BarChart data={top} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
         <XAxis
           type="number"
-          tick={{ fill: "#94a3b8", fontSize: 10 }}
+          tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v) => formatRupiah(v)}
@@ -179,22 +177,22 @@ export function TopOutletsChart({ data, height = 320 }: TopOutletsChartProps) {
         <YAxis
           type="category"
           dataKey="name"
-          tick={{ fill: "#cbd5e1", fontSize: 10 }}
+          tick={{ fill: "var(--foreground)", fontSize: 11 }}
           tickLine={false}
           axisLine={false}
-          width={120}
+          width={126}
           interval={0}
         />
         <ChartTooltip
           content={
             <ChartTooltipContent
-              formatter={(value, name, item) => {
+              formatter={(value, _name, item) => {
                 const txn = (item?.payload as { transactions?: number })?.transactions ?? 0;
                 return (
                   <div className="flex w-full flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground">Revenue</span>
+                    <span className="text-xs text-muted-foreground">Revenue</span>
                     <span className="font-bold tabular-nums">{formatRupiah(Number(value), false)}</span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {formatNumber(txn)} transaksi
                     </span>
                   </div>
@@ -204,11 +202,11 @@ export function TopOutletsChart({ data, height = 320 }: TopOutletsChartProps) {
           }
         />
         <Bar dataKey="revenue" radius={[0, 4, 4, 0]} maxBarSize={22}>
-          {top.map((d, i) => (
+          {top.map((_, i) => (
             <Cell
               key={`cell-${i}`}
-              fill={i === 0 ? CHART_COLORS.emerald : CHART_COLORS.cyan}
-              opacity={1 - (i / top.length) * 0.55}
+              fill={i === 0 ? CHART_COLORS.emerald : CHART_COLORS.primary}
+              opacity={1 - (i / Math.max(top.length, 1)) * 0.45}
             />
           ))}
         </Bar>
@@ -224,26 +222,19 @@ interface PaymentPieProps {
 
 export function PaymentMixChart({ data }: PaymentPieProps) {
   const colors = [
+    CHART_COLORS.primary,
     CHART_COLORS.emerald,
-    CHART_COLORS.cyan,
+    CHART_COLORS.cobalt,
     CHART_COLORS.amber,
-    CHART_COLORS.pink,
-    CHART_COLORS.purple,
-    CHART_COLORS.red,
-    "#22D3EE",
-    "#A78BFA",
-    "#34D399",
-    "#FBBF24",
-    "#F472B6",
-    "#60A5FA",
-    "#94A3B8",
+    CHART_COLORS.danger,
+    CHART_COLORS.muted,
   ];
 
   return (
-    <div className="flex h-[260px] flex-col items-center gap-3">
+    <div className="flex min-h-[260px] flex-col items-center gap-3">
       <ChartContainer
-        config={{ revenue: { label: "Revenue", color: CHART_COLORS.emerald } }}
-        className="aspect-square h-[200px]"
+        config={{ revenue: { label: "Revenue", color: CHART_COLORS.primary } }}
+        className="aspect-square h-[196px]"
       >
         <PieChart>
           <ChartTooltip
@@ -253,10 +244,10 @@ export function PaymentMixChart({ data }: PaymentPieProps) {
                   const p = item?.payload as { payment?: string; share?: number };
                   return (
                     <div className="flex w-full flex-col gap-0.5">
-                      <span className="text-[10px] text-muted-foreground">{p?.payment}</span>
+                      <span className="text-xs text-muted-foreground">{p?.payment}</span>
                       <span className="font-bold tabular-nums">{formatRupiah(Number(value), false)}</span>
                       {p?.share !== undefined && (
-                        <span className="text-[10px] text-muted-foreground">{formatPct(p.share)} share</span>
+                        <span className="text-xs text-muted-foreground">{formatPct(p.share)} share</span>
                       )}
                     </div>
                   );
@@ -270,11 +261,11 @@ export function PaymentMixChart({ data }: PaymentPieProps) {
             nameKey="payment"
             cx="50%"
             cy="50%"
-            innerRadius={55}
-            outerRadius={85}
+            innerRadius={54}
+            outerRadius={84}
             paddingAngle={2}
-            stroke="rgba(0,0,0,0.3)"
-            strokeWidth={1.5}
+            stroke="var(--card)"
+            strokeWidth={2}
           >
             {data.map((_, i) => (
               <Cell key={`cell-${i}`} fill={colors[i % colors.length]} />
@@ -286,10 +277,11 @@ export function PaymentMixChart({ data }: PaymentPieProps) {
         {data.slice(0, 6).map((p, i) => (
           <div key={p.payment} className="flex items-center gap-1.5">
             <span
-              className="h-2 w-2 rounded-full"
+              aria-hidden="true"
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: colors[i % colors.length] }}
             />
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {p.payment} ({formatPct(p.share)})
             </span>
           </div>
@@ -299,7 +291,7 @@ export function PaymentMixChart({ data }: PaymentPieProps) {
   );
 }
 
-// ----- Hourly Distribution (bar) - clickable -----
+// ----- Hourly Distribution (bar) - clickable + keyboard buttons -----
 interface HourlyChartProps {
   data: HourAgg[];
   peakHour: number;
@@ -307,83 +299,115 @@ interface HourlyChartProps {
   onBarClick?: (hour: number) => void;
 }
 
-export function HourlyChart({ data, peakHour, height = 320, onBarClick }: HourlyChartProps) {
-  // Filter to only hours with data (typically 5-22)
+export function HourlyChart({ data, peakHour, height = 280, onBarClick }: HourlyChartProps) {
   const activeData = data.filter((d) => d.revenue > 0 || d.transactions > 0);
   const display = activeData.length > 0 ? activeData : data;
 
   return (
-    <ChartContainer
-      config={{ revenue: { label: "Revenue", color: CHART_COLORS.purple } }}
-      className="w-full"
-      style={{ height }}
-    >
-      <BarChart
-        data={display}
-        margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+    <div className="flex flex-col gap-3">
+      <ChartContainer
+        config={{ revenue: { label: "Revenue", color: CHART_COLORS.primary } }}
+        className="w-full"
+        style={{ height }}
       >
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-        <XAxis
-          dataKey="hour"
-          tickFormatter={(v) => `${String(v).padStart(2, "0")}:00`}
-          tick={{ fill: "#94a3b8", fontSize: 9 }}
-          tickLine={false}
-          axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
-          interval={0}
-        />
-        <YAxis
-          tick={{ fill: "#94a3b8", fontSize: 10 }}
-          tickLine={false}
-          axisLine={false}
-          width={48}
-          tickFormatter={(v) => formatRupiah(v)}
-        />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              formatter={(value, _name, item) => {
-                const h = (item?.payload as { hour?: number })?.hour ?? 0;
-                return (
-                  <div className="flex w-full flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground">
-                      Jam {String(h).padStart(2, "0")}:00
-                      {h === peakHour && " (PUNCAK)"}
-                    </span>
-                    <span className="font-bold tabular-nums">{formatRupiah(Number(value), false)}</span>
-                    {onBarClick && (
-                      <span className="text-[10px] text-purple-300">
-                        Klik untuk lihat detail menu →
-                      </span>
-                    )}
-                  </div>
-                );
-              }}
-            />
-          }
-        />
-        <Bar
-          dataKey="revenue"
-          radius={[4, 4, 0, 0]}
-          maxBarSize={28}
-          cursor={onBarClick ? "pointer" : "default"}
-          onClick={(data: unknown) => {
-            if (!onBarClick) return;
-            const payload = (data as { payload?: { hour?: number } })?.payload;
-            if (payload && typeof payload.hour === "number") {
-              onBarClick(payload.hour);
-            }
-          }}
+        <BarChart
+          data={display}
+          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
         >
-          {display.map((d, i) => (
-            <Cell
-              key={`cell-${i}`}
-              fill={d.hour === peakHour ? CHART_COLORS.emerald : CHART_COLORS.purple}
-              opacity={d.hour === peakHour ? 1 : 0.7}
-            />
-          ))}
-        </Bar>
-      </BarChart>
-    </ChartContainer>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis
+            dataKey="hour"
+            tickFormatter={(v) => `${String(v).padStart(2, "0")}:00`}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+            tickLine={false}
+            axisLine={{ stroke: "var(--border)" }}
+            interval={0}
+          />
+          <YAxis
+            tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+            width={54}
+            tickFormatter={(v) => formatRupiah(v)}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={(value, _name, item) => {
+                  const h = (item?.payload as { hour?: number })?.hour ?? 0;
+                  return (
+                    <div className="flex w-full flex-col gap-0.5">
+                      <span className="text-xs text-muted-foreground">
+                        Jam {String(h).padStart(2, "0")}:00
+                        {h === peakHour && " (Puncak)"}
+                      </span>
+                      <span className="font-bold tabular-nums">{formatRupiah(Number(value), false)}</span>
+                      {onBarClick && (
+                        <span className="text-xs text-primary">
+                          Klik batang atau tombol jam di bawah untuk detail menu
+                        </span>
+                      )}
+                    </div>
+                  );
+                }}
+              />
+            }
+          />
+          <Bar
+            dataKey="revenue"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={28}
+            cursor={onBarClick ? "pointer" : "default"}
+            onClick={(barData: unknown) => {
+              if (!onBarClick) return;
+              const payload = (barData as { payload?: { hour?: number } })?.payload;
+              if (payload && typeof payload.hour === "number") {
+                onBarClick(payload.hour);
+              }
+            }}
+          >
+            {display.map((d, i) => (
+              <Cell
+                key={`cell-${i}`}
+                fill={d.hour === peakHour ? CHART_COLORS.emerald : CHART_COLORS.primary}
+                opacity={d.hour === peakHour ? 1 : 0.78}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ChartContainer>
+
+      {onBarClick && display.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-1.5 border-t border-border pt-2.5"
+          role="group"
+          aria-label="Pilih jam untuk melihat detail menu"
+        >
+          <span className="mr-1 text-xs font-medium text-muted-foreground">
+            Detail jam:
+          </span>
+          {display.map((d) => {
+            const label = `${String(d.hour).padStart(2, "0")}:00`;
+            const isPeak = d.hour === peakHour;
+            return (
+              <button
+                key={d.hour}
+                type="button"
+                onClick={() => onBarClick(d.hour)}
+                className={
+                  isPeak
+                    ? "min-h-8 rounded-md border border-emerald-700/40 bg-emerald-700/10 px-2 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-700/20 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-300"
+                    : "min-h-8 rounded-md border border-border bg-muted/50 px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                }
+                aria-label={`Lihat detail transaksi jam ${label}${isPeak ? " (jam puncak)" : ""}`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -402,15 +426,15 @@ export function TopItemsChart({ data, height = 320 }: TopItemsChartProps) {
   }));
   return (
     <ChartContainer
-      config={{ qty: { label: "Qty", color: CHART_COLORS.amber } }}
+      config={{ qty: { label: "Qty", color: CHART_COLORS.primary } }}
       className="w-full"
       style={{ height }}
     >
       <BarChart data={top} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
         <XAxis
           type="number"
-          tick={{ fill: "#94a3b8", fontSize: 10 }}
+          tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v) => formatNumber(v)}
@@ -418,10 +442,10 @@ export function TopItemsChart({ data, height = 320 }: TopItemsChartProps) {
         <YAxis
           type="category"
           dataKey="name"
-          tick={{ fill: "#cbd5e1", fontSize: 9 }}
+          tick={{ fill: "var(--foreground)", fontSize: 11 }}
           tickLine={false}
           axisLine={false}
-          width={130}
+          width={142}
           interval={0}
         />
         <ChartTooltip
@@ -431,10 +455,10 @@ export function TopItemsChart({ data, height = 320 }: TopItemsChartProps) {
                 const p = item?.payload as { revenue?: number; category?: string };
                 return (
                   <div className="flex w-full flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground">Qty terjual</span>
+                    <span className="text-xs text-muted-foreground">Qty terjual</span>
                     <span className="font-bold tabular-nums">{formatNumber(Number(value))} cup</span>
                     {p?.revenue !== undefined && (
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         Revenue {formatRupiah(p.revenue, false)} - {p.category}
                       </span>
                     )}
@@ -448,17 +472,17 @@ export function TopItemsChart({ data, height = 320 }: TopItemsChartProps) {
           {top.map((d, i) => {
             const color =
               d.category === "Coffee"
-                ? CHART_COLORS.emerald
+                ? CHART_COLORS.primary
                 : d.category === "Non-Coffee"
-                  ? CHART_COLORS.cyan
+                  ? CHART_COLORS.emerald
                   : d.category === "Packaging"
-                    ? CHART_COLORS.slate
-                    : CHART_COLORS.amber;
+                    ? CHART_COLORS.muted
+                    : CHART_COLORS.cobalt;
             return (
               <Cell
                 key={`cell-${i}`}
                 fill={color}
-                opacity={1 - (i / top.length) * 0.5}
+                opacity={1 - (i / Math.max(top.length, 1)) * 0.45}
               />
             );
           })}

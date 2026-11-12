@@ -11,14 +11,14 @@ import {
   Cookie,
   BarChart3,
   Table2,
-  CalendarDays,
-  Sparkles,
   AlertCircle,
   X,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { FilterBar } from "@/components/dashboard/FilterBar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { KpiGrid } from "@/components/dashboard/KpiCards";
 import { SectionCard } from "@/components/dashboard/SectionCard";
 import {
@@ -54,6 +54,7 @@ import {
 } from "@/lib/dashboard/aggregate";
 import type { DashboardData, HeatmapCell } from "@/lib/types";
 import type { SheetSourceDTO } from "@/lib/sheet-sources";
+import { formatNumber, formatPct, formatRupiah } from "@/lib/format";
 
 export default function Home() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -108,7 +109,7 @@ export default function Home() {
         const errMsg = errBody?.error || `HTTP ${res.status}`;
         const errLabel = errBody?.sheetLabel ? ` (sheet: ${errBody.sheetLabel})` : "";
         // Include debug hint if available
-        const debugHint = errBody?.debug?.hint ? `\n\n💡 ${errBody.debug.hint}` : "";
+        const debugHint = errBody?.debug?.hint ? `\n\nPetunjuk: ${errBody.debug.hint}` : "";
         throw new Error(`${errMsg}${errLabel}${debugHint}`);
       }
       const json: DashboardData & { warning?: string } = await res.json();
@@ -459,81 +460,130 @@ export default function Home() {
     hourAgg,
   ]);
 
-  // ----- Loading state -----
+  // ----- Loading skeleton (layout-matched to prevent CLS) -----
   if (loading && !data) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-400/30 border-t-emerald-400" />
-        <p className="text-sm text-muted-foreground">Memuat data dari Google Sheets...</p>
-      </div>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        role="status"
+        aria-live="polite"
+        aria-label="Memuat data dashboard dari Google Sheets"
+        className="min-h-screen bg-background text-foreground"
+      >
+        <div className="border-b border-border bg-card">
+          <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-3 px-4 py-3 lg:px-6">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-lg" />
+              <div className="space-y-1.5">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-64 hidden sm:block" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-9 w-32 rounded-md" />
+              <Skeleton className="h-9 w-9 rounded-md" />
+              <Skeleton className="h-9 w-24 rounded-md" />
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-[1440px] flex-col space-y-4 p-4 lg:p-6">
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton
+                key={i}
+                className={`h-28 rounded-xl lg:col-span-4 ${i === 0 ? "sm:col-span-2" : ""}`}
+              />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Skeleton className="h-[390px] rounded-xl lg:col-span-2" />
+            <Skeleton className="h-[390px] rounded-xl" />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Skeleton className="h-36 rounded-xl" />
+            <Skeleton className="h-36 rounded-xl" />
+          </div>
+          <span className="sr-only">Memuat data dari Google Sheets...</span>
+        </div>
+      </main>
     );
   }
 
   // ----- Error state -----
   if (error && !data) {
-    // Find the active sheet (if any) to show context
     const activeSheet = sources.find((s) => s.isActive);
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
-        <div className="max-w-lg rounded-lg border border-red-500/30 bg-red-500/5 p-6">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-4 text-foreground"
+      >
+        <div role="alert" className="max-w-lg rounded-xl border border-destructive/40 bg-card p-6 shadow-xs">
           <div className="flex items-start gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+            <AlertCircle aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-red-700 dark:text-red-400" />
             <div className="flex-1">
-              <p className="mb-1 text-sm font-semibold text-red-400">
+              <h1 className="mb-1 text-sm font-semibold text-red-700 dark:text-red-400">
                 Gagal memuat data
-              </p>
+              </h1>
               <p className="mb-3 whitespace-pre-line text-xs text-muted-foreground">{error}</p>
               {activeSheet && (
-                <div className="rounded-md bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+                <div className="rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-xs text-red-800 dark:text-red-200">
                   Sheet aktif: <strong>{activeSheet.label}</strong>
                   <br />
                   Pastikan sheet ini:
                   <ul className="ml-4 mt-1 list-disc space-y-0.5">
                     <li>Sudah di-share ke &quot;Anyone with link can view&quot;</li>
-                    <li>Punya header kolom yang sama dengan sheet Okt</li>
-                    <li>Tidak kosong (ada baris data)</li>
-                    <li>URL benar (cek sheetId &amp; gid)</li>
+                    <li>Memiliki header kolom yang sama dengan sheet Okt</li>
+                    <li>Tidak kosong (memiliki baris data)</li>
+                    <li>URL benar (periksa sheetId &amp; gid)</li>
                   </ul>
                 </div>
               )}
-              <div className="mt-3 rounded-md bg-white/5 px-3 py-2 text-[10px] text-muted-foreground">
-                💡 Untuk diagnose lengkap, buka endpoint{" "}
+              <div className="mt-3 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                Untuk diagnosa lengkap, buka endpoint{" "}
                 <a
                   href="/api/health"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-emerald-400 underline hover:text-emerald-300"
+                  className="font-mono font-medium text-primary underline"
                 >
                   /api/health
                 </a>{" "}
-                di tab baru. Akan cek: koneksi DB, status sheet aktif, akses Google Sheets dari server, dll.
+                di tab baru (cek koneksi DB, status sheet aktif, dan akses Google Sheets).
               </div>
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            className="rounded-lg bg-emerald-500/15 px-4 py-2 text-xs text-emerald-300 hover:bg-emerald-500/25"
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="min-h-10 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
             onClick={() => fetchData(true)}
           >
-            Coba lagi
-          </button>
+            Coba Lagi
+          </Button>
           <a
             href="/api/health"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs text-cyan-300 hover:bg-cyan-500/20"
+            className="inline-flex min-h-10 items-center rounded-md border border-border bg-card px-4 py-2 text-xs font-medium text-foreground hover:bg-muted"
           >
             Diagnose via /api/health
           </a>
-          <button
-            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs text-foreground hover:bg-white/10"
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-10 text-xs"
             onClick={() => setManagerOpen(true)}
           >
             Buka Kelola Sheet
-          </button>
+          </Button>
         </div>
-        {/* Sheet Manager Modal (also rendered here so user can switch back even in error state) */}
         <SheetManagerModal
           open={managerOpen}
           onOpenChange={setManagerOpen}
@@ -545,7 +595,7 @@ export default function Home() {
             setError(null);
           }}
         />
-      </div>
+      </main>
     );
   }
 
@@ -559,8 +609,20 @@ export default function Home() {
     itemCategories: store.itemCategories,
   };
 
+  const snackItems = itemAgg.filter((i) =>
+    i.category === "Snack" || i.category === "Pastry" || i.category === "RTD",
+  );
+  const snackRevenue = snackItems.reduce((sum, i) => sum + i.revenue, 0);
+  const snackQty = snackItems.reduce((sum, i) => sum + i.qty, 0);
+  const snackSharePct = kpi.revenue > 0 ? (snackRevenue / kpi.revenue) * 100 : 0;
+  const topSnackItem = snackItems[0] ?? null;
+
   return (
-    <main className="flex min-h-screen flex-col bg-background text-foreground">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex min-h-screen flex-col bg-background text-foreground outline-none"
+    >
       <DashboardHeader
         meta={data.meta}
         loading={loading}
@@ -579,42 +641,43 @@ export default function Home() {
 
       {/* Error banner (visible even when stale data is shown) */}
       {error && data && (
-        <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-3 lg:px-6">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+        <div role="alert" className="border-b border-destructive/35 bg-destructive/10">
+          <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-start gap-3 px-4 py-3 lg:px-6">
+            <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-status-danger" />
             <div className="flex-1">
-              <div className="text-xs font-semibold text-red-300">
-                Gagal fetch data sheet aktif. Menampilkan data lama (stale).
+              <div className="text-xs font-semibold text-status-danger">
+                Gagal fetch data sheet aktif. Menampilkan data terakhir yang tersimpan.
               </div>
-              <div className="mt-0.5 text-[11px] text-red-400/80">
+              <div className="mt-0.5 text-xs text-status-danger/90">
                 {error}
               </div>
-              <div className="mt-1 text-[10px] text-muted-foreground">
-                Coba klik tombol Refresh, atau periksa sheet aktif via{" "}
+              <div className="mt-1 text-xs text-muted-foreground">
+                Klik Refresh atau periksa sheet aktif lewat{" "}
                 <button
+                  type="button"
                   onClick={() => setManagerOpen(true)}
-                  className="text-emerald-400 underline"
+                  className="font-medium text-primary underline"
                 >
                   Kelola Sheet
                 </button>
-                . Pastikan sheet Google Sheets-nya public (Anyone with link
-                can view) dan header kolom sama dengan sheet Okt.
+                . Pastikan Google Sheets berstatus publik (Anyone with link can view).
               </div>
             </div>
             <Button
+              type="button"
               size="sm"
               variant="outline"
-              className="h-6 gap-1 border-red-500/30 bg-red-500/10 text-[10px] text-red-300 hover:bg-red-500/20"
+              className="min-h-9 gap-1 border-destructive/35 text-xs text-status-danger hover:bg-destructive/10"
               onClick={() => setError(null)}
             >
-              <X className="h-3 w-3" />
+              <X aria-hidden="true" className="h-3.5 w-3.5" />
               Tutup
             </Button>
           </div>
         </div>
       )}
 
-      <div className="flex flex-1 flex-col space-y-4 p-4 lg:p-6">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col space-y-4 p-4 lg:p-6">
         {/* Filter bar */}
         <FilterBar
           dataRange={dataRange}
@@ -626,24 +689,19 @@ export default function Home() {
 
         {/* Cross-sheet compare banner */}
         {crossSheetCompareEnabled && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+          <div className="rounded-lg border border-primary/35 bg-primary/[0.06] px-3.5 py-2.5 text-xs">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-amber-300">
-                vs Bulan Lalu
+              <span className="font-semibold text-primary">
+                Mode Banding Bulan Lalu
               </span>
               {crossSheetLoading ? (
                 <span className="text-muted-foreground">Memuat data bulan lalu...</span>
               ) : crossSheetAvailable ? (
-                <>
-                  <span className="text-muted-foreground">
-                    Membandingkan dengan <span className="text-foreground">{crossSheetPrevSourceLabel}</span> ({crossSheetPrevDateStart} → {crossSheetPrevDateEnd})
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    • Filter outlet/payment/kategori menu juga diterapkan ke data bulan lalu
-                  </span>
-                </>
+                <span className="text-muted-foreground">
+                  Membandingkan dengan <span className="font-medium text-foreground">{crossSheetPrevSourceLabel}</span> ({crossSheetPrevDateStart} s/d {crossSheetPrevDateEnd}) dengan filter yang sama.
+                </span>
               ) : (
-                <span className="text-red-400">
+                <span className="font-medium text-status-danger">
                   {crossSheetUnavailableReason || "Data bulan lalu tidak tersedia"}
                 </span>
               )}
@@ -651,29 +709,26 @@ export default function Home() {
           </div>
         )}
 
-        {/* Outlet consistency banner - explain why filtering */}
+        {/* Outlet consistency banner */}
         {outletConsistency !== "off" && (
-          <div className="rounded-lg border border-teal-500/30 bg-teal-500/5 px-3 py-2 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-teal-300">
+          <div className="rounded-lg border border-status-success/35 bg-status-success/[0.06] px-3.5 py-2.5 text-xs">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <span className="font-semibold text-status-success">
                 Filter Outlet Konsisten Aktif
               </span>
               <span className="text-muted-foreground">
-                Mode: <span className="text-foreground">
-                  {outletConsistency === "strict" ? "100% hari aktif (strict)" : "≥ 80% hari aktif (permissive)"}
+                Mode: <span className="font-medium text-foreground">
+                  {outletConsistency === "strict" ? "100% hari aktif (strict)" : "minimal 80% hari aktif"}
                 </span>
               </span>
               <span className="text-muted-foreground">
-                • Menampilkan <span className="font-bold text-foreground">{consistentOutletCount}</span> dari {totalOutletCount} outlet
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                💡 Hanya outlet yang konsisten aktif sepanjang periode yang dihitung - supaya perbandingan tren harian apple-to-apple (tanpa bias dari outlet yang buka/tutup di tanggal tertentu)
+                ({consistentOutletCount} dari {totalOutletCount} outlet dihitung agar perbandingan tren apple-to-apple)
               </span>
             </div>
           </div>
         )}
 
-        {/* KPI grid - shows delta vs prev period (within-sheet OR cross-sheet) */}
+        {/* KPI grid */}
         <KpiGrid
           kpi={kpi}
           prevKpi={
@@ -694,12 +749,12 @@ export default function Home() {
             title="Tren Revenue Harian"
             subtitle={
               crossSheetCompareEnabled && crossSheetAvailable
-                ? `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)} (vs bulan lalu ${formatDateLong(crossSheetPrevDateStart)} → ${formatDateLong(crossSheetPrevDateEnd)})`
+                ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs bulan lalu ${formatDateLong(crossSheetPrevDateStart)} s/d ${formatDateLong(crossSheetPrevDateEnd)})`
                 : compareEnabled
-                  ? `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)} (vs prev ${formatDateLong(prevDateStart)} → ${formatDateLong(prevDateEnd)})`
-                  : `${formatDateLong(dateStart)} → ${formatDateLong(dateEnd)}`
+                  ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs prev ${formatDateLong(prevDateStart)} s/d ${formatDateLong(prevDateEnd)})`
+                  : `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)}`
             }
-            icon={<TrendingUp className="h-4 w-4 text-emerald-300" />}
+            icon={<TrendingUp className="h-4 w-4" />}
             className="lg:col-span-2"
           >
             <RevenueTrendChart
@@ -737,83 +792,99 @@ export default function Home() {
           />
         </div>
 
-        {/* Stock-out Analysis - deteksi item kehabisan stok dengan AI */}
-        <SectionCard
-          title="Analisa Indikasi Stock-Out"
-          subtitle="AI deteksi menu yang kemungkinan kehabisan stok dengan compare vs tanggal yang sama bulan lalu"
-          icon={<PackageX className="h-4 w-4 text-orange-300" />}
-          action={
-            <Button
-              size="sm"
-              className="gap-1.5 bg-orange-500/15 text-xs text-orange-300 hover:bg-orange-500/25"
-              onClick={() => setStockoutOpen(true)}
-              disabled={!activeSheetId || !dateStart || !dateEnd}
-            >
-              <PackageX className="h-3.5 w-3.5" />
-              Analisa Stock-Out
-            </Button>
-          }
-        >
-          <div className="flex flex-col gap-2 py-2 text-xs text-muted-foreground">
-            <p>
-              Klik <span className="font-medium text-orange-300">Analisa Stock-Out</span> untuk
-              menjalankan AI deteksi stock-out. Sistem akan:
-            </p>
-            <ul className="ml-4 list-disc space-y-0.5 text-[11px]">
-              <li>Compare qty penjualan setiap menu di periode ini vs tanggal yang sama bulan lalu</li>
-              <li>Identifikasi item dengan penurunan drastis atau qty = 0 di hari tertentu</li>
-              <li>Hitung estimasi revenue loss dari stock-out</li>
-              <li>Berikan prioritas restock + rekomendasi operasional</li>
-            </ul>
-            <p className="text-[10px]">
-              💡 Tip: Untuk hasil terbaik, pastikan sheet bulan lalu sudah terdaftar
-              (lihat tombol &quot;vs Bulan Lalu&quot;). Tanpa sheet bulan lalu, analisa tidak bisa jalan.
-            </p>
-          </div>
-        </SectionCard>
+        {/* Operational Deep-Dive Modules */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <SectionCard
+            title="Analisa Indikasi Stock-Out"
+            subtitle="Bandingkan qty menu vs bulan lalu untuk deteksi kehabisan stok dan estimasi loss"
+            icon={<PackageX className="h-4 w-4" />}
+            action={
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-10 gap-1.5 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                onClick={() => setStockoutOpen(true)}
+                disabled={!activeSheetId || !dateStart || !dateEnd}
+              >
+                <PackageX aria-hidden="true" className="h-3.5 w-3.5" />
+                Buka Analisa
+              </Button>
+            }
+          >
+            <div className="space-y-2.5">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Menandai menu dengan penurunan tajam atau qty 0 pada hari tertentu dibanding periode yang sama di sheet bulan lalu, lengkap dengan prioritas restock.
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <Badge variant="outline" className="font-normal">
+                  <span className="font-mono font-semibold text-foreground">{formatNumber(kpi.outlets)}</span>
+                  <span className="ml-1 text-muted-foreground">outlet dipantau</span>
+                </Badge>
+                <Badge variant="outline" className="font-normal">
+                  <span className="font-mono font-semibold text-foreground">{formatNumber(kpi.uniqueItemTypes)}</span>
+                  <span className="ml-1 text-muted-foreground">SKU aktif</span>
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={
+                    sources.length >= 2
+                      ? "border-status-success/35 bg-status-success/10 text-status-success"
+                      : "border-status-warning/35 bg-status-warning/10 text-status-warning"
+                  }
+                >
+                  {sources.length >= 2 ? "Pembanding bulan lalu siap" : "Tambah sheet bulan lalu di Kelola Sheet"}
+                </Badge>
+              </div>
+            </div>
+          </SectionCard>
 
-        {/* Snack / Pastry / RTD Analysis - AI analisa penjualan makanan */}
-        <SectionCard
-          title="Analisa Penjualan Snack, Pastry & RTD"
-          subtitle="AI analisa performa makanan (ice cream, cake, croissant, RTD) - best-seller, naik/turun, peluang upsell"
-          icon={<Cookie className="h-4 w-4 text-pink-300" />}
-          action={
-            <Button
-              size="sm"
-              className="gap-1.5 bg-pink-500/15 text-xs text-pink-300 hover:bg-pink-500/25"
-              onClick={() => setSnackOpen(true)}
-              disabled={!activeSheetId || !dateStart || !dateEnd}
-            >
-              <Cookie className="h-3.5 w-3.5" />
-              Analisa Snack
-            </Button>
-          }
-        >
-          <div className="flex flex-col gap-2 py-2 text-xs text-muted-foreground">
-            <p>
-              Klik <span className="font-medium text-pink-300">Analisa Snack</span> untuk
-              menjalankan AI analisa penjualan makanan. Sistem akan:
-            </p>
-            <ul className="ml-4 list-disc space-y-0.5 text-[11px]">
-              <li>Aggregate semua item kategori Snack, Pastry, RTD + compare vs bulan lalu</li>
-              <li>Identifikasi best-seller & item yang naik/turun signifikan</li>
-              <li>Hitung revenue per kategori + delta vs bulan lalu</li>
-              <li>Rekomendasi peluang upsell/cross-sell & strategi menu</li>
-            </ul>
-            <p className="text-[10px]">
-              💡 Kategori otomatis: <span className="text-pink-300">Snack</span> (ice cream, wingko, cookies),
-              <span className="text-amber-300"> Pastry</span> (cake, croissant, pie, roll, puff),
-              <span className="text-cyan-300"> RTD</span> (GD series, ABC, LOVY, Danish).
-            </p>
-          </div>
-        </SectionCard>
+          <SectionCard
+            title="Analisa Snack, Pastry &amp; RTD"
+            subtitle="Evaluasi item makanan pendamping, kontribusi kategori, dan peluang cross-sell"
+            icon={<Cookie className="h-4 w-4" />}
+            action={
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-h-10 gap-1.5 text-xs"
+                onClick={() => setSnackOpen(true)}
+                disabled={!activeSheetId || !dateStart || !dateEnd}
+              >
+                <Cookie aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                Buka Analisa
+              </Button>
+            }
+          >
+            <div className="space-y-2.5">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Mengelompokkan kategori Snack, Pastry, dan RTD untuk memantau best-seller, produk yang menurun, serta rekomendasi bundling menu.
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <Badge variant="outline" className="font-normal">
+                  <span className="font-mono font-semibold text-foreground">{formatRupiah(snackRevenue)}</span>
+                  <span className="ml-1 text-muted-foreground">({formatPct(snackSharePct)} omzet)</span>
+                </Badge>
+                <Badge variant="outline" className="font-normal">
+                  <span className="font-mono font-semibold text-foreground">{formatNumber(snackQty)}</span>
+                  <span className="ml-1 text-muted-foreground">qty terjual</span>
+                </Badge>
+                {topSnackItem && (
+                  <Badge variant="secondary" className="max-w-full truncate font-normal">
+                    Top: <span className="ml-1 font-medium text-foreground">{topSnackItem.item}</span>
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </SectionCard>
+        </div>
 
         {/* Top outlets + Payment mix */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <SectionCard
             title="Top 10 Outlet"
             subtitle="Berdasarkan revenue"
-            icon={<Store className="h-4 w-4 text-cyan-300" />}
+            icon={<Store className="h-4 w-4" />}
             className="lg:col-span-2"
           >
             <TopOutletsChart data={outletAgg} />
@@ -822,7 +893,7 @@ export default function Home() {
           <SectionCard
             title="Mix Pembayaran"
             subtitle="Share revenue per metode"
-            icon={<CreditCard className="h-4 w-4 text-amber-300" />}
+            icon={<CreditCard className="h-4 w-4" />}
           >
             <PaymentMixChart data={paymentAgg} />
           </SectionCard>
@@ -832,8 +903,8 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <SectionCard
             title="Distribusi Jam Operasional"
-            subtitle={`Jam puncak: ${String(kpi.peakHour).padStart(2, "0")}:00 WIB - klik bar untuk lihat menu terjual di jam itu`}
-            icon={<Clock className="h-4 w-4 text-purple-300" />}
+            subtitle={`Jam puncak: ${String(kpi.peakHour).padStart(2, "0")}:00 WIB - pilih jam untuk detail menu`}
+            icon={<Clock className="h-4 w-4" />}
             className="lg:col-span-2"
           >
             <HourlyChart
@@ -846,7 +917,7 @@ export default function Home() {
           <SectionCard
             title="Top 10 Item"
             subtitle="Berdasarkan qty terjual"
-            icon={<Coffee className="h-4 w-4 text-pink-300" />}
+            icon={<Coffee className="h-4 w-4" />}
           >
             <TopItemsChart data={itemAgg} />
           </SectionCard>
@@ -855,8 +926,8 @@ export default function Home() {
         {/* Heatmap */}
         <SectionCard
           title="Heatmap Outlet x Tanggal"
-          subtitle="Intensitas revenue per outlet per hari - merah di kolom Total = alert"
-          icon={<BarChart3 className="h-4 w-4 text-emerald-300" />}
+          subtitle="Intensitas revenue per outlet per hari (total bertanda merah berada di bawah 50% rata-rata)"
+          icon={<BarChart3 className="h-4 w-4" />}
         >
           <OutletHeatmap data={heatmap} dateList={dateList} />
         </SectionCard>
@@ -865,37 +936,37 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <SectionCard
             title="Ranking Outlet"
-            subtitle="Klik header kolom untuk sort"
-            icon={<Table2 className="h-4 w-4 text-cyan-300" />}
+            subtitle="Klik header kolom untuk mengurutkan"
+            icon={<Table2 className="h-4 w-4" />}
           >
             <OutletRankingTable data={outletAgg} />
           </SectionCard>
 
           <SectionCard
             title="Ranking Item Menu"
-            subtitle="Sortable by qty / revenue / transaksi"
-            icon={<Package className="h-4 w-4 text-pink-300" />}
+            subtitle="Urutkan berdasarkan qty, revenue, atau transaksi"
+            icon={<Package className="h-4 w-4" />}
           >
             <ItemRankingTable data={itemAgg} />
           </SectionCard>
         </div>
 
         {/* Footer */}
-        <footer className="mt-auto py-6 text-center text-[10px] text-muted-foreground">
+        <footer className="mt-auto border-t border-border py-5 text-center text-xs text-muted-foreground">
           <div>
-            KACC Dashboard Monitoring v1.0 - Data di-refresh otomatis tiap 5 menit dari Google Sheets
+            KACC Dashboard Monitoring - Auto-refresh tiap 5 menit dari Google Sheets
           </div>
           <div className="mt-1">
-            Source:{" "}
+            Sumber:{" "}
             <a
               href={data.meta.source}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-emerald-400 hover:underline"
+              className="font-medium text-primary hover:underline"
             >
               Google Sheets
             </a>{" "}
-            • Last updated: {data.meta.lastUpdated ? new Date(data.meta.lastUpdated).toLocaleString("id-ID") : "-"}
+            | Pembaruan terakhir: {data.meta.lastUpdated ? new Date(data.meta.lastUpdated).toLocaleString("id-ID") : "-"}
           </div>
         </footer>
       </div>

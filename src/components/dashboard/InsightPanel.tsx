@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Sparkles, Loader2, AlertTriangle, Lightbulb, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { FileText, Loader2, AlertTriangle, Lightbulb, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDashboardStore } from "@/lib/dashboard/store";
 import type {
@@ -81,40 +80,47 @@ export function InsightPanel(props: InsightPanelProps) {
   }
 
   return (
-    <div className="rounded-xl border border-purple-500/20 bg-gradient-to-br from-purple-500/5 via-card to-cyan-500/5 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="rounded-lg bg-purple-500/15 p-2">
-            <Sparkles className="h-4 w-4 text-purple-300" />
+    <section
+      aria-live="polite"
+      className="rounded-xl border border-primary/30 bg-card p-4 shadow-xs"
+    >
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div
+            aria-hidden="true"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+          >
+            <FileText className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-foreground">Insight Otomatis (AI)</h3>
-            <p className="text-[10px] text-muted-foreground">
-              Analisa naratif performa periode ini
+            <h2 className="text-sm font-bold text-foreground">Ringkasan Insight Periode</h2>
+            <p className="text-xs text-muted-foreground">
+              Analisa naratif performa outlet dan menu
             </p>
           </div>
         </div>
         <Button
-          variant="outline"
+          type="button"
+          variant={insightNarrative ? "outline" : "default"}
           size="sm"
-          className="gap-1.5 border-purple-500/30 bg-purple-500/10 text-xs text-purple-200 hover:bg-purple-500/20"
+          className="min-h-10 gap-1.5 text-xs"
           onClick={generateInsight}
           disabled={insightLoading}
         >
           {insightLoading ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
               Menganalisa...
             </>
           ) : insightNarrative ? (
             <>
-              <RefreshCw className="h-3.5 w-3.5" />
-              Refresh Insight
+              <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+              Perbarui Insight
             </>
           ) : (
             <>
-              <Sparkles className="h-3.5 w-3.5" />
-              Generate Insight
+              <FileText aria-hidden="true" className="h-3.5 w-3.5" />
+              Buat Ringkasan
             </>
           )}
         </Button>
@@ -122,31 +128,34 @@ export function InsightPanel(props: InsightPanelProps) {
 
       {/* Generated content */}
       {insightLoading && !insightNarrative && (
-        <div className="space-y-2">
-          <div className="h-3 w-3/4 animate-pulse rounded bg-white/5" />
-          <div className="h-3 w-full animate-pulse rounded bg-white/5" />
-          <div className="h-3 w-5/6 animate-pulse rounded bg-white/5" />
-          <div className="h-3 w-2/3 animate-pulse rounded bg-white/5" />
+        <div className="space-y-2" aria-label="Memuat ringkasan">
+          <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-full animate-pulse rounded bg-muted" />
+          <div className="h-3 w-5/6 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
         </div>
       )}
 
       {error && (
-        <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-red-700 dark:text-red-300"
+        >
           {error}
         </div>
       )}
 
       {insightNarrative && !insightLoading && (
         <div className="space-y-3">
-          <p className="text-xs leading-relaxed text-foreground/90">
+          <p className="text-sm leading-relaxed text-foreground">
             {insightNarrative}
           </p>
 
           {insightHighlights.length > 0 && (
             <div>
               <div className="mb-1.5 flex items-center gap-1.5">
-                <Lightbulb className="h-3 w-3 text-amber-300" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+                <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
+                <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
                   Poin Penting
                 </span>
               </div>
@@ -154,9 +163,11 @@ export function InsightPanel(props: InsightPanelProps) {
                 {insightHighlights.map((h, i) => (
                   <li
                     key={i}
-                    className="flex gap-1.5 text-xs text-foreground/80"
+                    className="flex gap-2 text-xs leading-relaxed text-foreground/90"
                   >
-                    <span className="text-amber-300">•</span>
+                    <span aria-hidden="true" className="font-bold text-primary">
+                      -
+                    </span>
                     <span>{h}</span>
                   </li>
                 ))}
@@ -167,8 +178,8 @@ export function InsightPanel(props: InsightPanelProps) {
           {insightAlerts.length > 0 && (
             <div>
               <div className="mb-1.5 flex items-center gap-1.5">
-                <AlertTriangle className="h-3 w-3 text-red-400" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-red-400">
+                <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 text-red-700 dark:text-red-400" />
+                <span className="text-xs font-semibold text-red-700 dark:text-red-400">
                   Alert Operasional
                 </span>
               </div>
@@ -176,9 +187,9 @@ export function InsightPanel(props: InsightPanelProps) {
                 {insightAlerts.map((a, i) => (
                   <li
                     key={i}
-                    className="flex gap-1.5 rounded bg-red-500/5 px-2 py-1 text-xs text-red-300"
+                    className="flex gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-2.5 py-1.5 text-xs text-red-800 dark:text-red-300"
                   >
-                    <span className="font-bold">!</span>
+                    <span aria-hidden="true" className="font-bold">!</span>
                     <span>{a}</span>
                   </li>
                 ))}
@@ -187,8 +198,8 @@ export function InsightPanel(props: InsightPanelProps) {
           )}
 
           {insightGeneratedAt && (
-            <div className="border-t border-white/5 pt-2 text-[10px] text-muted-foreground">
-              Generated at {formatDateLong(insightGeneratedAt.slice(0, 10))}{" "}
+            <div className="border-t border-border pt-2 text-xs text-muted-foreground">
+              Dibuat pada {formatDateLong(insightGeneratedAt.slice(0, 10))}{" "}
               {new Date(insightGeneratedAt).toLocaleTimeString("id-ID", {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -200,11 +211,11 @@ export function InsightPanel(props: InsightPanelProps) {
       )}
 
       {!insightNarrative && !insightLoading && !error && (
-        <div className="py-4 text-center text-xs text-muted-foreground">
-          Klik <span className="font-medium text-purple-300">Generate Insight</span> untuk
-          mendapat analisa otomatis dari AI
+        <div className="py-3 text-center text-xs text-muted-foreground">
+          Klik <span className="font-semibold text-primary">Buat Ringkasan</span> untuk
+          membuat analisa otomatis berdasarkan filter periode saat ini.
         </div>
       )}
-    </div>
+    </section>
   );
 }

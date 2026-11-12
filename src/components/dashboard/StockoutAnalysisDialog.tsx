@@ -4,7 +4,7 @@ import {
   AlertTriangle,
   PackageX,
   Loader2,
-  Sparkles,
+  FileText,
   TrendingDown,
   Calendar,
   ChevronDown,
@@ -111,39 +111,39 @@ const severityConfig: Record<
   { color: string; bg: string; border: string; icon: typeof AlertTriangle; label: string }
 > = {
   severe: {
-    color: "text-red-400",
-    bg: "bg-red-500/10",
-    border: "border-red-500/40",
+    color: "text-red-700 dark:text-red-400",
+    bg: "bg-destructive/10",
+    border: "border-destructive/40",
     icon: AlertTriangle,
     label: "SEVERE",
   },
   high: {
-    color: "text-orange-400",
-    bg: "bg-orange-500/10",
-    border: "border-orange-500/40",
+    color: "text-primary",
+    bg: "bg-primary/10",
+    border: "border-primary/40",
     icon: PackageX,
     label: "TINGGI",
   },
   moderate: {
-    color: "text-amber-400",
+    color: "text-amber-800 dark:text-amber-300",
     bg: "bg-amber-500/10",
-    border: "border-amber-500/40",
+    border: "border-amber-600/40",
     icon: TrendingDown,
     label: "SEDANG",
   },
   normal: {
-    color: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/40",
+    color: "text-emerald-700 dark:text-emerald-300",
+    bg: "bg-emerald-700/10 dark:bg-emerald-400/10",
+    border: "border-emerald-700/40 dark:border-emerald-400/40",
     icon: Lightbulb,
     label: "NORMAL",
   },
 };
 
 const priorityColor: Record<string, string> = {
-  KRITIS: "border-red-500/40 bg-red-500/10 text-red-400",
-  TINGGI: "border-orange-500/40 bg-orange-500/10 text-orange-400",
-  SEDANG: "border-amber-500/40 bg-amber-500/10 text-amber-400",
+  KRITIS: "border-destructive/40 bg-destructive/10 text-red-700 dark:text-red-400",
+  TINGGI: "border-primary/40 bg-primary/10 text-primary",
+  SEDANG: "border-amber-600/40 bg-amber-500/10 text-amber-800 dark:text-amber-300",
 };
 
 export function StockoutAnalysisDialog({
@@ -222,41 +222,41 @@ export function StockoutAnalysisDialog({
       <DialogContent className="max-h-[95vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <PackageX className="h-5 w-5 text-orange-400" />
+            <PackageX aria-hidden="true" className="h-5 w-5 text-primary" />
             Analisa Indikasi Stock-Out
           </DialogTitle>
           <DialogDescription className="text-xs">
             Bandingkan penjualan menu periode{" "}
             <span className="font-medium text-foreground">
-              {formatDateLong(currentDateRange.start)} → {formatDateLong(currentDateRange.end)}
+              {formatDateLong(currentDateRange.start)} s/d {formatDateLong(currentDateRange.end)}
             </span>{" "}
-            vs tanggal yang sama di bulan lalu. AI akan identifikasi item yang
-            kemungkinan kehabisan stok.
+            vs tanggal yang sama di bulan lalu untuk mengidentifikasi item yang kemungkinan kehabisan stok.
           </DialogDescription>
         </DialogHeader>
 
         {/* Action button */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
+            type="button"
             size="sm"
-            className="gap-1.5 bg-orange-500/15 text-xs text-orange-300 hover:bg-orange-500/25"
+            className="min-h-10 gap-1.5 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
             onClick={runAnalysis}
             disabled={loading || !activeSourceId}
           >
             {loading ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
                 Menganalisa (bisa 30-60 detik)...
               </>
             ) : (
               <>
-                <Sparkles className="h-3.5 w-3.5" />
-                {result ? "Re-run Analisa" : "Mulai Analisa Stock-Out"}
+                <PackageX aria-hidden="true" className="h-3.5 w-3.5" />
+                {result ? "Jalankan Ulang Analisa" : "Mulai Analisa Stock-Out"}
               </>
             )}
           </Button>
           {result?.meta && (
-            <div className="text-[10px] text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               {result.meta.totalItemsAnalyzed} item dianalisa, {result.meta.suspectedItemsCount} terindikasi
             </div>
           )}
@@ -264,8 +264,11 @@ export function StockoutAnalysisDialog({
 
         {/* Error */}
         {error && (
-          <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">
-            <AlertCircle className="mr-1 inline h-3 w-3" />
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-red-700 dark:text-red-300"
+          >
+            <AlertCircle aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5" />
             {error}
           </div>
         )}
@@ -273,20 +276,20 @@ export function StockoutAnalysisDialog({
         {/* Loading skeleton */}
         {loading && !result && (
           <div className="space-y-2">
-            <div className="h-3 w-3/4 animate-pulse rounded bg-white/5" />
-            <div className="h-3 w-full animate-pulse rounded bg-white/5" />
-            <div className="h-3 w-5/6 animate-pulse rounded bg-white/5" />
-            <div className="h-3 w-2/3 animate-pulse rounded bg-white/5" />
-            <div className="mt-4 text-center text-[10px] text-muted-foreground">
-              Mengambil data bulan lalu + agregasi per-item per-hari + analisa AI...
+            <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-full animate-pulse rounded bg-muted" />
+            <div className="h-3 w-5/6 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+            <div className="mt-4 text-center text-xs text-muted-foreground">
+              Mengambil data bulan lalu, agregasi per item per hari, dan menyusun analisa...
             </div>
           </div>
         )}
 
         {/* No issues */}
         {result?.noIssues && (
-          <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-            <Lightbulb className="mr-1 inline h-4 w-4" />
+          <div className="rounded-lg border border-emerald-700/30 bg-emerald-700/10 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300">
+            <Lightbulb aria-hidden="true" className="mr-1.5 inline h-4 w-4" />
             {result.message}
           </div>
         )}
@@ -294,16 +297,16 @@ export function StockoutAnalysisDialog({
         {/* Results */}
         {result && !result.noIssues && (
           <div className="space-y-4">
-            {/* AI Narrative */}
+            {/* Narrative */}
             {result.narrative && (
-              <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+              <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3">
                 <div className="mb-1.5 flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3 text-purple-300" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-300">
-                    Analisa AI
+                  <FileText aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-primary">
+                    Ringkasan Analisa
                   </span>
                 </div>
-                <p className="text-xs leading-relaxed text-foreground/90">
+                <p className="text-xs leading-relaxed text-foreground">
                   {result.narrative}
                 </p>
               </div>
@@ -311,48 +314,48 @@ export function StockoutAnalysisDialog({
 
             {/* Revenue loss + meta */}
             {result.meta && (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/[0.06] p-2.5">
+                  <div className="text-xs font-medium text-muted-foreground">
                     Estimasi Revenue Loss
                   </div>
-                  <div className="text-sm font-bold tabular-nums text-red-300">
+                  <div className="text-sm font-bold tabular-nums text-red-700 dark:text-red-400">
                     {result.revenueLossEstimate || formatRupiah(result.meta.totalRevenueLossRaw)}
                   </div>
                 </div>
-                <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                <div className="rounded-lg border border-primary/30 bg-primary/[0.06] p-2.5">
+                  <div className="text-xs font-medium text-muted-foreground">
                     Item Terindikasi
                   </div>
-                  <div className="text-sm font-bold tabular-nums text-orange-300">
+                  <div className="text-sm font-bold tabular-nums text-primary">
                     {result.meta.suspectedItemsCount} dari {result.meta.totalItemsAnalyzed}
                   </div>
                 </div>
-                <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                <div className="rounded-lg border border-border bg-muted/50 p-2.5">
+                  <div className="text-xs font-medium text-muted-foreground">
                     Periode Banding
                   </div>
-                  <div className="text-[11px] font-mono text-cyan-300">
-                    {result.meta.prevDateRange.start} → {result.meta.prevDateRange.end}
+                  <div className="text-xs font-mono text-foreground">
+                    {result.meta.prevDateRange.start} s/d {result.meta.prevDateRange.end}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Suspected stock-out items (AI list) */}
+            {/* Suspected stock-out items */}
             {result.suspectedStockout && result.suspectedStockout.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                  Item yang Strong Terindikasi Stock-Out (AI)
+                  <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 text-red-700 dark:text-red-400" />
+                  Item Terindikasi Kuat Stock-Out
                 </h3>
                 <ul className="space-y-1.5">
                   {result.suspectedStockout.map((s, i) => (
                     <li
                       key={i}
-                      className="flex gap-1.5 rounded-md bg-red-500/5 px-2 py-1.5 text-xs text-red-200"
+                      className="flex gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-2.5 py-2 text-xs text-red-800 dark:text-red-200"
                     >
-                      <span className="font-bold text-red-400">!</span>
+                      <span aria-hidden="true" className="font-bold">!</span>
                       <span>{s}</span>
                     </li>
                   ))}
@@ -364,19 +367,19 @@ export function StockoutAnalysisDialog({
             {result.restockPriority && result.restockPriority.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <PackageX className="h-3.5 w-3.5 text-orange-300" />
+                  <PackageX aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
                   Prioritas Restock
                 </h3>
                 <div className="space-y-1.5">
                   {result.restockPriority.map((p, i) => (
                     <div
                       key={i}
-                      className="flex items-start gap-2 rounded-md border border-white/5 bg-card/40 px-2 py-1.5"
+                      className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 px-2.5 py-2"
                     >
                       <Badge
                         variant="outline"
                         className={cn(
-                          "h-5 shrink-0 px-1 text-[9px] font-bold",
+                          "h-5 shrink-0 px-1.5 text-[11px] font-bold",
                           priorityColor[p.priority] ?? priorityColor.SEDANG,
                         )}
                       >
@@ -384,7 +387,7 @@ export function StockoutAnalysisDialog({
                       </Badge>
                       <div className="flex-1">
                         <div className="text-xs font-medium text-foreground">{p.item}</div>
-                        <div className="text-[10px] text-muted-foreground">{p.reason}</div>
+                        <div className="text-xs text-muted-foreground">{p.reason}</div>
                       </div>
                     </div>
                   ))}
@@ -396,17 +399,17 @@ export function StockoutAnalysisDialog({
             {result.paymentAnalyses && result.paymentAnalyses.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <CreditCard className="h-3.5 w-3.5 text-cyan-300" />
-                  Penurunan per Metode Pembayaran (curr vs prev)
+                  <CreditCard aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                  Penurunan per Metode Pembayaran (Periode Ini vs Lalu)
                 </h3>
 
-                {/* AI payment analysis narrative */}
+                {/* Payment analysis narrative */}
                 {result.paymentMethodAnalysis && (
-                  <div className="mb-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-2.5">
+                  <div className="mb-2.5 rounded-lg border border-border bg-muted/50 p-3">
                     <div className="mb-1 flex items-center gap-1.5">
-                      <Sparkles className="h-3 w-3 text-cyan-300" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
-                        Analisa AI - Payment Method
+                      <FileText aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-semibold text-foreground">
+                        Ringkasan Metode Pembayaran
                       </span>
                     </div>
                     <p className="text-xs leading-relaxed text-foreground/90">
@@ -415,36 +418,36 @@ export function StockoutAnalysisDialog({
                   </div>
                 )}
 
-                {/* Payment table - sorted by revenueChange ascending (biggest losses first) */}
-                <div className="overflow-x-auto rounded-lg border border-white/5">
+                {/* Payment table */}
+                <div className="overflow-x-auto rounded-lg border border-border">
                   <table className="w-full">
-                    <thead className="border-b border-white/5 bg-card/50">
+                    <thead className="border-b border-border bg-muted/50">
                       <tr>
-                        <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-left text-xs font-semibold text-muted-foreground">
                           Payment
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
                           Revenue Ini
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
                           Revenue Lalu
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          Δ Revenue
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
+                          Selisih Revenue
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          Δ %
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
+                          Delta %
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
                           Txn Ini
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
                           Txn Lalu
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
                           Share Ini
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
                           Share Lalu
                         </th>
                       </tr>
@@ -453,56 +456,60 @@ export function StockoutAnalysisDialog({
                       {result.paymentAnalyses.map((p) => {
                         const isLoss = p.revenueChange < 0;
                         const isGain = p.revenueChange > 0;
-                        const isSignificant = Math.abs(p.revenueChange) > 1_000_000; // > Rp 1 juta
+                        const isSignificant = Math.abs(p.revenueChange) > 1_000_000;
                         return (
                           <tr
                             key={p.payment}
                             className={cn(
-                              "border-b border-white/5 transition-colors hover:bg-white/5",
-                              isLoss && isSignificant && "bg-red-500/5",
-                              isGain && isSignificant && "bg-emerald-500/5",
+                              "border-b border-border/70 transition-colors hover:bg-muted/40",
+                              isLoss && isSignificant && "bg-destructive/[0.06]",
+                              isGain && isSignificant && "bg-emerald-700/[0.06] dark:bg-emerald-400/[0.06]",
                             )}
                           >
-                            <td className="px-2 py-1.5 text-xs font-medium text-foreground">
+                            <td className="px-2.5 py-2 text-xs font-medium text-foreground">
                               {p.payment}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-foreground">
+                            <td className="px-2.5 py-2 text-right text-xs tabular-nums text-foreground">
                               {formatRupiah(p.currRevenue)}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
+                            <td className="px-2.5 py-2 text-right text-xs tabular-nums text-muted-foreground">
                               {formatRupiah(p.prevRevenue)}
                             </td>
                             <td
                               className={cn(
-                                "px-2 py-1.5 text-right text-xs font-bold tabular-nums",
-                                isLoss ? "text-red-400" : isGain ? "text-emerald-400" : "text-muted-foreground",
+                                "px-2.5 py-2 text-right text-xs font-bold tabular-nums",
+                                isLoss
+                                  ? "text-red-700 dark:text-red-400"
+                                  : isGain
+                                    ? "text-emerald-700 dark:text-emerald-300"
+                                    : "text-muted-foreground",
                               )}
                             >
-                              {isLoss ? "−" : isGain ? "+" : ""}
+                              {isLoss ? "-" : isGain ? "+" : ""}
                               {formatRupiah(Math.abs(p.revenueChange))}
                             </td>
                             <td
                               className={cn(
-                                "px-2 py-1.5 text-right text-xs font-bold tabular-nums",
+                                "px-2.5 py-2 text-right text-xs font-bold tabular-nums",
                                 p.revenueDeltaPct !== null && p.revenueDeltaPct < 0
-                                  ? "text-red-400"
+                                  ? "text-red-700 dark:text-red-400"
                                   : p.revenueDeltaPct !== null && p.revenueDeltaPct > 0
-                                    ? "text-emerald-400"
+                                    ? "text-emerald-700 dark:text-emerald-300"
                                     : "text-muted-foreground",
                               )}
                             >
                               {p.revenueDeltaPct !== null ? formatPct(p.revenueDeltaPct) : "-"}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
+                            <td className="px-2.5 py-2 text-right text-xs tabular-nums text-muted-foreground">
                               {formatNumber(p.currTransactions)}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
+                            <td className="px-2.5 py-2 text-right text-xs tabular-nums text-muted-foreground">
                               {formatNumber(p.prevTransactions)}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-foreground">
+                            <td className="px-2.5 py-2 text-right text-xs tabular-nums text-foreground">
                               {formatPct(p.currShare)}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
+                            <td className="px-2.5 py-2 text-right text-xs tabular-nums text-muted-foreground">
                               {formatPct(p.prevShare)}
                             </td>
                           </tr>
@@ -510,33 +517,33 @@ export function StockoutAnalysisDialog({
                       })}
                     </tbody>
                     {result.meta?.totalCurrRevenue !== undefined && result.meta?.totalPrevRevenue !== undefined && (
-                      <tfoot className="border-t-2 border-white/10 bg-card/30">
+                      <tfoot className="border-t-2 border-border bg-muted/50">
                         <tr>
-                          <td className="px-2 py-1.5 text-xs font-bold text-foreground">TOTAL</td>
-                          <td className="px-2 py-1.5 text-right text-xs font-bold tabular-nums text-foreground">
+                          <td className="px-2.5 py-2 text-xs font-bold text-foreground">TOTAL</td>
+                          <td className="px-2.5 py-2 text-right text-xs font-bold tabular-nums text-foreground">
                             {formatRupiah(result.meta.totalCurrRevenue)}
                           </td>
-                          <td className="px-2 py-1.5 text-right text-xs font-bold tabular-nums text-muted-foreground">
+                          <td className="px-2.5 py-2 text-right text-xs font-bold tabular-nums text-muted-foreground">
                             {formatRupiah(result.meta.totalPrevRevenue)}
                           </td>
                           <td
                             className={cn(
-                              "px-2 py-1.5 text-right text-xs font-bold tabular-nums",
+                              "px-2.5 py-2 text-right text-xs font-bold tabular-nums",
                               result.meta.totalCurrRevenue - result.meta.totalPrevRevenue < 0
-                                ? "text-red-400"
-                                : "text-emerald-400",
+                                ? "text-red-700 dark:text-red-400"
+                                : "text-emerald-700 dark:text-emerald-300",
                             )}
                           >
-                            {result.meta.totalCurrRevenue - result.meta.totalPrevRevenue < 0 ? "−" : "+"}
+                            {result.meta.totalCurrRevenue - result.meta.totalPrevRevenue < 0 ? "-" : "+"}
                             {formatRupiah(Math.abs(result.meta.totalCurrRevenue - result.meta.totalPrevRevenue))}
                           </td>
                           <td
                             className={cn(
-                              "px-2 py-1.5 text-right text-xs font-bold tabular-nums",
+                              "px-2.5 py-2 text-right text-xs font-bold tabular-nums",
                               result.meta.totalPrevRevenue > 0 &&
                               ((result.meta.totalCurrRevenue - result.meta.totalPrevRevenue) / result.meta.totalPrevRevenue) * 100 < 0
-                                ? "text-red-400"
-                                : "text-emerald-400",
+                                ? "text-red-700 dark:text-red-400"
+                                : "text-emerald-700 dark:text-emerald-300",
                             )}
                           >
                             {result.meta.totalPrevRevenue > 0
@@ -548,10 +555,10 @@ export function StockoutAnalysisDialog({
                               : "-"}
                           </td>
                           <td colSpan={2}></td>
-                          <td className="px-2 py-1.5 text-right text-xs font-bold tabular-nums text-foreground">
+                          <td className="px-2.5 py-2 text-right text-xs font-bold tabular-nums text-foreground">
                             100,0%
                           </td>
-                          <td className="px-2 py-1.5 text-right text-xs font-bold tabular-nums text-muted-foreground">
+                          <td className="px-2.5 py-2 text-right text-xs font-bold tabular-nums text-muted-foreground">
                             100,0%
                           </td>
                         </tr>
@@ -559,9 +566,8 @@ export function StockoutAnalysisDialog({
                     )}
                   </table>
                 </div>
-                <p className="mt-1.5 text-[10px] text-muted-foreground">
-                  💡 Baris merah = penurunan signifikan (&gt; Rp 1 juta). Baris hijau = kenaikan signifikan.
-                  Diurut dari loss terbesar ke gain.
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Keterangan: Baris merah menandakan penurunan di atas Rp 1 juta; baris hijau menandakan kenaikan di atas Rp 1 juta (diurut dari penurunan terbesar).
                 </p>
               </section>
             )}
@@ -570,10 +576,10 @@ export function StockoutAnalysisDialog({
             {result.itemAnalyses && result.itemAnalyses.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <TrendingDown className="h-3.5 w-3.5 text-amber-300" />
-                  Detail Item Terindikasi (klik untuk expand harian)
+                  <TrendingDown aria-hidden="true" className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
+                  Detail Item Terindikasi (pilih untuk rincian harian)
                 </h3>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {result.itemAnalyses.map((a) => {
                     const sev = severityConfig[a.severity] ?? severityConfig.moderate;
                     const Icon = sev.icon;
@@ -582,97 +588,100 @@ export function StockoutAnalysisDialog({
                       <div
                         key={a.item}
                         className={cn(
-                          "rounded-md border bg-card/40",
+                          "rounded-lg border bg-card",
                           sev.border,
                         )}
                       >
                         <button
                           type="button"
+                          aria-expanded={expanded}
                           onClick={() => toggleItem(a.item)}
-                          className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-white/5"
+                          className="flex min-h-11 w-full flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
                         >
-                          {expanded ? (
-                            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                          )}
-                          <Icon className={cn("h-3.5 w-3.5 shrink-0", sev.color)} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-foreground truncate">
-                                {a.item}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "h-4 shrink-0 px-1 text-[9px] font-bold",
-                                  sev.bg,
-                                  sev.border,
-                                  sev.color,
-                                )}
-                              >
-                                {sev.label}
-                              </Badge>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground truncate">
-                              {a.severityReason}
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            {expanded ? (
+                              <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            )}
+                            <Icon aria-hidden="true" className={cn("h-4 w-4 shrink-0", sev.color)} />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="truncate text-xs font-semibold text-foreground">
+                                  {a.item}
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "h-5 shrink-0 px-1.5 text-[11px] font-bold",
+                                    sev.bg,
+                                    sev.border,
+                                    sev.color,
+                                  )}
+                                >
+                                  {sev.label}
+                                </Badge>
+                              </div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {a.severityReason}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-3 text-[10px] tabular-nums">
+                          <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs tabular-nums">
                             <div className="text-right">
-                              <div className="text-muted-foreground">Bulan Lalu</div>
+                              <div className="text-[11px] text-muted-foreground">Bulan Lalu</div>
                               <div className="font-bold text-foreground">
                                 {formatNumber(a.prevQty)} cup
                               </div>
                             </div>
-                            <div className="text-muted-foreground">→</div>
+                            <span aria-hidden="true" className="text-muted-foreground">ke</span>
                             <div className="text-right">
-                              <div className="text-muted-foreground">Periode Ini</div>
+                              <div className="text-[11px] text-muted-foreground">Periode Ini</div>
                               <div className="font-bold text-foreground">
                                 {formatNumber(a.currQty)} cup
                               </div>
                             </div>
                             <div
                               className={cn(
-                                "rounded px-1.5 py-0.5 text-[10px] font-bold",
+                                "rounded px-2 py-0.5 text-xs font-bold",
                                 (a.deltaPct ?? 0) < 0
-                                  ? "bg-red-500/15 text-red-300"
-                                  : "bg-emerald-500/15 text-emerald-300",
+                                  ? "bg-destructive/15 text-red-700 dark:text-red-300"
+                                  : "bg-emerald-700/15 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300",
                               )}
                             >
                               {a.deltaPct !== null ? formatPct(a.deltaPct) : "-"}
                             </div>
                             <div className="text-right">
-                              <div className="text-muted-foreground">Loss</div>
-                              <div className="font-bold text-red-300">
+                              <div className="text-[11px] text-muted-foreground">Loss</div>
+                              <div className="font-bold text-red-700 dark:text-red-400">
                                 {formatRupiah(a.revenueLoss)}
                               </div>
                             </div>
                           </div>
                         </button>
                         {expanded && (
-                          <div className="border-t border-white/5 px-2.5 py-2">
+                          <div className="border-t border-border px-3 py-2.5">
                             {/* Zero anomaly days highlight */}
                             {a.zeroAnomalyDays.length > 0 && (
-                              <div className="mb-2 rounded bg-red-500/10 px-2 py-1 text-[10px] text-red-300">
-                                <AlertCircle className="mr-1 inline h-2.5 w-2.5" />
-                                <span className="font-bold">{a.zeroAnomalyDays.length} hari</span> dengan qty=0 padahal hari yang sama bulan lalu rata-rata ≥5 cup:
+                              <div className="mb-2 rounded-md border border-destructive/25 bg-destructive/10 px-2.5 py-1.5 text-xs text-red-800 dark:text-red-300">
+                                <AlertCircle aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5" />
+                                <span className="font-bold">{a.zeroAnomalyDays.length} hari</span> dengan qty=0 padahal hari yang sama bulan lalu rata-rata minimal 5 cup:
                                 <span className="ml-1 font-mono">
                                   {a.zeroAnomalyDays.map((d) => `${formatDateShort(d)} (${a.dailyBreakdown.find((db) => db.date === d)?.dayOfWeek})`).join(", ")}
                                 </span>
                               </div>
                             )}
                             {/* Daily breakdown table */}
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-[10px]">
-                                <thead>
+                            <div className="overflow-x-auto rounded border border-border">
+                              <table className="w-full text-xs">
+                                <thead className="bg-muted/50">
                                   <tr className="text-muted-foreground">
-                                    <th className="px-1.5 py-1 text-left font-medium">Tanggal</th>
-                                    <th className="px-1.5 py-1 text-left font-medium">Hari</th>
-                                    <th className="px-1.5 py-1 text-right font-medium">Qty Ini</th>
-                                    <th className="px-1.5 py-1 text-right font-medium">Qty Lalu (avg DoW)</th>
-                                    <th className="px-1.5 py-1 text-right font-medium">Revenue</th>
-                                    <th className="px-1.5 py-1 text-center font-medium">Status</th>
+                                    <th className="px-2 py-1.5 text-left font-medium">Tanggal</th>
+                                    <th className="px-2 py-1.5 text-left font-medium">Hari</th>
+                                    <th className="px-2 py-1.5 text-right font-medium">Qty Ini</th>
+                                    <th className="px-2 py-1.5 text-right font-medium">Qty Lalu (avg DoW)</th>
+                                    <th className="px-2 py-1.5 text-right font-medium">Revenue</th>
+                                    <th className="px-2 py-1.5 text-center font-medium">Status</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -680,30 +689,30 @@ export function StockoutAnalysisDialog({
                                     <tr
                                       key={d.date}
                                       className={cn(
-                                        "border-t border-white/5",
-                                        d.isZeroAnomaly && "bg-red-500/10",
+                                        "border-t border-border",
+                                        d.isZeroAnomaly && "bg-destructive/10",
                                       )}
                                     >
-                                      <td className="px-1.5 py-1 font-mono">{d.date}</td>
-                                      <td className="px-1.5 py-1">{d.dayOfWeek}</td>
-                                      <td className="px-1.5 py-1 text-right tabular-nums font-bold">
+                                      <td className="px-2 py-1.5 font-mono">{d.date}</td>
+                                      <td className="px-2 py-1.5">{d.dayOfWeek}</td>
+                                      <td className="px-2 py-1.5 text-right font-bold tabular-nums">
                                         {formatNumber(d.qty)}
                                       </td>
-                                      <td className="px-1.5 py-1 text-right tabular-nums text-muted-foreground">
+                                      <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
                                         {d.prevSameDowAvg > 0 ? d.prevSameDowAvg.toFixed(0) : "-"}
                                       </td>
-                                      <td className="px-1.5 py-1 text-right tabular-nums">
+                                      <td className="px-2 py-1.5 text-right tabular-nums">
                                         {d.revenue > 0 ? formatRupiah(d.revenue) : "-"}
                                       </td>
-                                      <td className="px-1.5 py-1 text-center">
+                                      <td className="px-2 py-1.5 text-center font-medium">
                                         {d.isZeroAnomaly ? (
-                                          <span className="font-bold text-red-400">⚠️ ZERO</span>
+                                          <span className="font-bold text-red-700 dark:text-red-400">KOSONG (ZERO)</span>
                                         ) : d.qty === 0 ? (
                                           <span className="text-muted-foreground">0</span>
                                         ) : d.qty < d.prevSameDowAvg * 0.5 ? (
-                                          <span className="text-amber-400">↓</span>
+                                          <span className="text-amber-700 dark:text-amber-300">Turun</span>
                                         ) : (
-                                          <span className="text-emerald-400">✓</span>
+                                          <span className="text-emerald-700 dark:text-emerald-300">Normal</span>
                                         )}
                                       </td>
                                     </tr>
@@ -711,7 +720,7 @@ export function StockoutAnalysisDialog({
                                 </tbody>
                               </table>
                             </div>
-                            <div className="mt-1.5 flex items-center gap-3 text-[10px] text-muted-foreground">
+                            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                               <span>
                                 Hari jual periode ini: <span className="font-bold text-foreground">{a.currDaysWithSales}/{a.currPeriodDays}</span>
                               </span>
@@ -732,13 +741,13 @@ export function StockoutAnalysisDialog({
             {result.recommendations && result.recommendations.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Lightbulb className="h-3.5 w-3.5 text-amber-300" />
+                  <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
                   Rekomendasi Operasional
                 </h3>
                 <ul className="space-y-1">
                   {result.recommendations.map((r, i) => (
-                    <li key={i} className="flex gap-1.5 text-xs text-foreground/80">
-                      <span className="text-amber-300">•</span>
+                    <li key={i} className="flex gap-2 text-xs leading-relaxed text-foreground/90">
+                      <span aria-hidden="true" className="font-bold text-primary">-</span>
                       <span>{r}</span>
                     </li>
                   ))}
@@ -748,9 +757,9 @@ export function StockoutAnalysisDialog({
 
             {/* Generated timestamp */}
             {result.generatedAt && (
-              <div className="border-t border-white/5 pt-2 text-[10px] text-muted-foreground">
-                <Calendar className="mr-1 inline h-3 w-3" />
-                Generated at {new Date(result.generatedAt).toLocaleString("id-ID")}
+              <div className="border-t border-border pt-2 text-xs text-muted-foreground">
+                <Calendar aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5" />
+                Dibuat pada {new Date(result.generatedAt).toLocaleString("id-ID")}
               </div>
             )}
           </div>

@@ -4,7 +4,9 @@ import {
   Cookie,
   CakeSlice,
   Loader2,
-  Sparkles,
+  FileText,
+  Star,
+  XCircle,
   TrendingUp,
   TrendingDown,
   Lightbulb,
@@ -92,31 +94,31 @@ const categoryConfig: Record<string, {
   icon: typeof Cookie;
 }> = {
   Snack: {
-    color: "text-pink-300",
-    bg: "bg-pink-500/10",
-    border: "border-pink-500/30",
+    color: "text-primary",
+    bg: "bg-primary/[0.06]",
+    border: "border-primary/35",
     icon: Cookie,
   },
   Pastry: {
-    color: "text-amber-300",
+    color: "text-amber-800 dark:text-amber-300",
     bg: "bg-amber-500/10",
-    border: "border-amber-500/30",
+    border: "border-amber-600/35",
     icon: CakeSlice,
   },
   RTD: {
-    color: "text-cyan-300",
-    bg: "bg-cyan-500/10",
-    border: "border-cyan-500/30",
+    color: "text-blue-800 dark:text-blue-300",
+    bg: "bg-blue-600/10",
+    border: "border-blue-600/35",
     icon: Package,
   },
 };
 
 const trendConfig: Record<string, { color: string; icon: typeof TrendingUp; label: string }> = {
-  growing: { color: "text-emerald-400", icon: TrendingUp, label: "↑ Naik" },
-  declining: { color: "text-red-400", icon: TrendingDown, label: "↓ Turun" },
-  stable: { color: "text-muted-foreground", icon: Target, label: "= Stabil" },
-  new: { color: "text-cyan-400", icon: Sparkles, label: "★ Baru" },
-  discontinued: { color: "text-red-500", icon: AlertCircle, label: "✗ Stop" },
+  growing: { color: "text-emerald-700 dark:text-emerald-300", icon: TrendingUp, label: "Naik" },
+  declining: { color: "text-red-700 dark:text-red-400", icon: TrendingDown, label: "Turun" },
+  stable: { color: "text-muted-foreground", icon: Target, label: "Stabil" },
+  new: { color: "text-primary", icon: Star, label: "Baru" },
+  discontinued: { color: "text-red-700 dark:text-red-400", icon: XCircle, label: "Stop" },
 };
 
 export function SnackAnalysisDialog({
@@ -183,40 +185,41 @@ export function SnackAnalysisDialog({
       <DialogContent className="max-h-[95vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Cookie className="h-5 w-5 text-pink-400" />
-            Analisa Penjualan Snack, Pastry & RTD
+            <Cookie aria-hidden="true" className="h-5 w-5 text-primary" />
+            Analisa Penjualan Snack, Pastry &amp; RTD
           </DialogTitle>
           <DialogDescription className="text-xs">
             Bandingkan penjualan makanan (snack, pastry, RTD) periode{" "}
             <span className="font-medium text-foreground">
-              {formatDateLong(currentDateRange.start)} → {formatDateLong(currentDateRange.end)}
+              {formatDateLong(currentDateRange.start)} s/d {formatDateLong(currentDateRange.end)}
             </span>{" "}
-            vs tanggal yang sama di bulan lalu. AI akan identifikasi best-seller, item naik/turun, peluang upsell.
+            vs tanggal yang sama di bulan lalu untuk identifikasi best-seller, item naik/turun, dan peluang upsell.
           </DialogDescription>
         </DialogHeader>
 
         {/* Action button */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
+            type="button"
             size="sm"
-            className="gap-1.5 bg-pink-500/15 text-xs text-pink-300 hover:bg-pink-500/25"
+            className="min-h-10 gap-1.5 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
             onClick={runAnalysis}
             disabled={loading || !activeSourceId}
           >
             {loading ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
                 Menganalisa (bisa 30-60 detik)...
               </>
             ) : (
               <>
-                <Sparkles className="h-3.5 w-3.5" />
-                {result ? "Re-run Analisa" : "Mulai Analisa Snack"}
+                <Cookie aria-hidden="true" className="h-3.5 w-3.5" />
+                {result ? "Jalankan Ulang Analisa" : "Mulai Analisa Snack"}
               </>
             )}
           </Button>
           {result?.meta && (
-            <div className="text-[10px] text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               {result.meta.totalItems} item dianalisa
             </div>
           )}
@@ -224,8 +227,11 @@ export function SnackAnalysisDialog({
 
         {/* Error */}
         {error && (
-          <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">
-            <AlertCircle className="mr-1 inline h-3 w-3" />
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-red-700 dark:text-red-300"
+          >
+            <AlertCircle aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5" />
             {error}
           </div>
         )}
@@ -233,20 +239,20 @@ export function SnackAnalysisDialog({
         {/* Loading skeleton */}
         {loading && !result && (
           <div className="space-y-2">
-            <div className="h-3 w-3/4 animate-pulse rounded bg-white/5" />
-            <div className="h-3 w-full animate-pulse rounded bg-white/5" />
-            <div className="h-3 w-5/6 animate-pulse rounded bg-white/5" />
-            <div className="h-3 w-2/3 animate-pulse rounded bg-white/5" />
-            <div className="mt-4 text-center text-[10px] text-muted-foreground">
-              Mengambil data bulan lalu + agregasi snack + analisa AI...
+            <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-full animate-pulse rounded bg-muted" />
+            <div className="h-3 w-5/6 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+            <div className="mt-4 text-center text-xs text-muted-foreground">
+              Mengambil data bulan lalu, agregasi snack, dan menyusun analisa...
             </div>
           </div>
         )}
 
         {/* No issues */}
         {result?.noIssues && (
-          <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-            <Lightbulb className="mr-1 inline h-4 w-4" />
+          <div className="rounded-lg border border-emerald-700/30 bg-emerald-700/10 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300">
+            <Lightbulb aria-hidden="true" className="mr-1.5 inline h-4 w-4" />
             {result.message}
           </div>
         )}
@@ -254,16 +260,16 @@ export function SnackAnalysisDialog({
         {/* Results */}
         {result && !result.noIssues && (
           <div className="space-y-4">
-            {/* AI Narrative */}
+            {/* Narrative */}
             {result.narrative && (
-              <div className="rounded-lg border border-pink-500/20 bg-pink-500/5 p-3">
+              <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3">
                 <div className="mb-1.5 flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3 text-pink-300" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-pink-300">
-                    Analisa AI
+                  <FileText aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-primary">
+                    Ringkasan Analisa
                   </span>
                 </div>
-                <p className="text-xs leading-relaxed text-foreground/90">
+                <p className="text-xs leading-relaxed text-foreground">
                   {result.narrative}
                 </p>
               </div>
@@ -271,48 +277,50 @@ export function SnackAnalysisDialog({
 
             {/* Summary KPIs */}
             {result.meta && (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div className="rounded-lg border border-pink-500/20 bg-pink-500/5 p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg border border-primary/35 bg-primary/[0.06] p-2.5">
+                  <div className="text-xs font-medium text-muted-foreground">
                     Revenue Snack/Pastry/RTD
                   </div>
-                  <div className="text-sm font-bold tabular-nums text-pink-300">
+                  <div className="text-sm font-bold tabular-nums text-foreground">
                     {formatRupiah(result.meta.totalCurrRevenue)}
                   </div>
                   {result.meta.totalDeltaPct !== null && (
                     <div className={cn(
-                      "text-[10px] font-bold",
-                      result.meta.totalDeltaPct < 0 ? "text-red-400" : "text-emerald-400",
+                      "text-xs font-semibold",
+                      result.meta.totalDeltaPct < 0
+                        ? "text-red-700 dark:text-red-400"
+                        : "text-emerald-700 dark:text-emerald-300",
                     )}>
                       {formatPct(result.meta.totalDeltaPct)} vs bulan lalu
                     </div>
                   )}
                 </div>
-                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                <div className="rounded-lg border border-border bg-muted/50 p-2.5">
+                  <div className="text-xs font-medium text-muted-foreground">
                     Total Qty Terjual
                   </div>
-                  <div className="text-sm font-bold tabular-nums text-amber-300">
-                    {formatNumber(result.meta.totalCurrQty)} cup
+                  <div className="text-sm font-bold tabular-nums text-foreground">
+                    {formatNumber(result.meta.totalCurrQty)} pcs
                   </div>
-                  <div className="text-[10px] text-muted-foreground">
-                    prev: {formatNumber(result.meta.totalPrevQty)} cup
+                  <div className="text-xs text-muted-foreground">
+                    Bulan lalu: {formatNumber(result.meta.totalPrevQty)} pcs
                   </div>
                 </div>
-                <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                <div className="rounded-lg border border-border bg-muted/50 p-2.5">
+                  <div className="text-xs font-medium text-muted-foreground">
                     Item Unik
                   </div>
-                  <div className="text-sm font-bold tabular-nums text-cyan-300">
+                  <div className="text-sm font-bold tabular-nums text-foreground">
                     {result.meta.totalItems}
                   </div>
                 </div>
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                <div className="rounded-lg border border-border bg-muted/50 p-2.5">
+                  <div className="text-xs font-medium text-muted-foreground">
                     Periode Banding
                   </div>
-                  <div className="text-[11px] font-mono text-emerald-300">
-                    {result.meta.prevDateRange.start} → {result.meta.prevDateRange.end}
+                  <div className="text-xs font-mono text-foreground">
+                    {result.meta.prevDateRange.start} s/d {result.meta.prevDateRange.end}
                   </div>
                 </div>
               </div>
@@ -322,34 +330,36 @@ export function SnackAnalysisDialog({
             {result.categoryTotals && Object.keys(result.categoryTotals).length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Target className="h-3.5 w-3.5 text-amber-300" />
+                  <Target aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
                   Breakdown per Kategori
                 </h3>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                   {Object.entries(result.categoryTotals).map(([cat, t]) => {
                     const conf = categoryConfig[cat] ?? categoryConfig.Snack;
                     const Icon = conf.icon;
                     return (
                       <div
                         key={cat}
-                        className={cn("rounded-lg border p-2.5", conf.border, conf.bg)}
+                        className={cn("rounded-lg border p-3", conf.border, conf.bg)}
                       >
                         <div className="mb-1 flex items-center gap-1.5">
-                          <Icon className={cn("h-3.5 w-3.5", conf.color)} />
+                          <Icon aria-hidden="true" className={cn("h-3.5 w-3.5", conf.color)} />
                           <span className={cn("text-xs font-bold", conf.color)}>{cat}</span>
                         </div>
                         <div className="text-sm font-bold tabular-nums text-foreground">
                           {formatRupiah(t.currRevenue)}
                         </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {formatNumber(t.currQty)} cup (prev: {formatNumber(t.prevQty)})
+                        <div className="text-xs text-muted-foreground">
+                          {formatNumber(t.currQty)} pcs (lalu: {formatNumber(t.prevQty)})
                         </div>
                         {t.deltaPct !== null && (
                           <div className={cn(
-                            "text-[10px] font-bold",
-                            t.deltaPct < 0 ? "text-red-400" : "text-emerald-400",
+                            "mt-0.5 text-xs font-semibold",
+                            t.deltaPct < 0
+                              ? "text-red-700 dark:text-red-400"
+                              : "text-emerald-700 dark:text-emerald-300",
                           )}>
-                            {formatPct(t.deltaPct)} vs prev
+                            {formatPct(t.deltaPct)} vs bulan lalu
                           </div>
                         )}
                       </div>
@@ -363,16 +373,16 @@ export function SnackAnalysisDialog({
             {result.topPerformers && result.topPerformers.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-300" />
+                  <TrendingUp aria-hidden="true" className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
                   Top Performers (Best-Seller / Naik Signifikan)
                 </h3>
                 <ul className="space-y-1.5">
                   {result.topPerformers.map((s, i) => (
                     <li
                       key={i}
-                      className="flex gap-1.5 rounded-md bg-emerald-500/5 px-2 py-1.5 text-xs text-emerald-200"
+                      className="flex gap-2 rounded-md border border-emerald-700/25 bg-emerald-700/10 px-2.5 py-2 text-xs text-emerald-900 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-200"
                     >
-                      <span className="font-bold text-emerald-400">↑</span>
+                      <span aria-hidden="true" className="font-bold">+</span>
                       <span>{s}</span>
                     </li>
                   ))}
@@ -384,16 +394,16 @@ export function SnackAnalysisDialog({
             {result.decliningItems && result.decliningItems.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+                  <TrendingDown aria-hidden="true" className="h-3.5 w-3.5 text-red-700 dark:text-red-400" />
                   Item yang Turun Signifikan
                 </h3>
                 <ul className="space-y-1.5">
                   {result.decliningItems.map((s, i) => (
                     <li
                       key={i}
-                      className="flex gap-1.5 rounded-md bg-red-500/5 px-2 py-1.5 text-xs text-red-200"
+                      className="flex gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-2.5 py-2 text-xs text-red-800 dark:text-red-200"
                     >
-                      <span className="font-bold text-red-400">↓</span>
+                      <span aria-hidden="true" className="font-bold">-</span>
                       <span>{s}</span>
                     </li>
                   ))}
@@ -405,13 +415,13 @@ export function SnackAnalysisDialog({
             {result.opportunities && result.opportunities.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Lightbulb className="h-3.5 w-3.5 text-amber-300" />
+                  <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
                   Peluang Bisnis (Upsell / Cross-sell / Promosi)
                 </h3>
                 <ul className="space-y-1">
                   {result.opportunities.map((s, i) => (
-                    <li key={i} className="flex gap-1.5 text-xs text-foreground/80">
-                      <span className="text-amber-300">💡</span>
+                    <li key={i} className="flex gap-2 text-xs leading-relaxed text-foreground/90">
+                      <span aria-hidden="true" className="font-bold text-primary">-</span>
                       <span>{s}</span>
                     </li>
                   ))}
@@ -423,38 +433,38 @@ export function SnackAnalysisDialog({
             {result.itemAnalyses && result.itemAnalyses.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Cookie className="h-3.5 w-3.5 text-pink-300" />
-                  Detail Semua Item (sorted by revenue curr)
+                  <Cookie aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                  Detail Semua Item (urut revenue periode ini)
                 </h3>
-                <div className="overflow-x-auto rounded-lg border border-white/5">
+                <div className="overflow-x-auto rounded-lg border border-border">
                   <table className="w-full">
-                    <thead className="border-b border-white/5 bg-card/50">
+                    <thead className="border-b border-border bg-muted/50">
                       <tr>
-                        <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-left text-xs font-semibold text-muted-foreground">
                           #
                         </th>
-                        <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-left text-xs font-semibold text-muted-foreground">
                           Item
                         </th>
-                        <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-left text-xs font-semibold text-muted-foreground">
                           Kategori
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
                           Qty Ini
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
                           Qty Lalu
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          Δ %
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
+                          Delta %
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
                           Revenue Ini
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          Δ Revenue
+                        <th className="px-2.5 py-2 text-right text-xs font-semibold text-muted-foreground">
+                          Selisih Revenue
                         </th>
-                        <th className="px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <th className="px-2.5 py-2 text-center text-xs font-semibold text-muted-foreground">
                           Trend
                         </th>
                       </tr>
@@ -468,22 +478,22 @@ export function SnackAnalysisDialog({
                           <tr
                             key={a.item}
                             className={cn(
-                              "border-b border-white/5 transition-colors hover:bg-white/5",
-                              a.trend === "declining" && "bg-red-500/5",
-                              a.trend === "growing" && "bg-emerald-500/5",
+                              "border-b border-border/70 transition-colors hover:bg-muted/40",
+                              a.trend === "declining" && "bg-destructive/[0.06]",
+                              a.trend === "growing" && "bg-emerald-700/[0.06] dark:bg-emerald-400/[0.06]",
                             )}
                           >
-                            <td className="px-2 py-1.5 text-[10px] font-mono text-muted-foreground">
+                            <td className="px-2.5 py-2 text-xs font-mono text-muted-foreground">
                               {i + 1}
                             </td>
-                            <td className="px-2 py-1.5 text-[11px] font-medium text-foreground" title={a.item}>
+                            <td className="px-2.5 py-2 text-xs font-medium text-foreground" title={a.item}>
                               {a.item}
                             </td>
-                            <td className="px-2 py-1.5">
+                            <td className="px-2.5 py-2">
                               <Badge
                                 variant="outline"
                                 className={cn(
-                                  "h-4 px-1 text-[9px] font-medium",
+                                  "h-5 px-2 text-[11px] font-medium",
                                   conf.bg,
                                   conf.border,
                                   conf.color,
@@ -492,43 +502,43 @@ export function SnackAnalysisDialog({
                                 {a.category}
                               </Badge>
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[11px] font-bold tabular-nums text-foreground">
+                            <td className="px-2.5 py-2 text-right text-xs font-bold tabular-nums text-foreground">
                               {formatNumber(a.currQty)}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-muted-foreground">
+                            <td className="px-2.5 py-2 text-right text-xs tabular-nums text-muted-foreground">
                               {formatNumber(a.prevQty)}
                             </td>
                             <td
                               className={cn(
-                                "px-2 py-1.5 text-right text-[11px] font-bold tabular-nums",
+                                "px-2.5 py-2 text-right text-xs font-bold tabular-nums",
                                 a.deltaPct !== null && a.deltaPct < 0
-                                  ? "text-red-400"
+                                  ? "text-red-700 dark:text-red-400"
                                   : a.deltaPct !== null && a.deltaPct > 0
-                                    ? "text-emerald-400"
+                                    ? "text-emerald-700 dark:text-emerald-300"
                                     : "text-muted-foreground",
                               )}
                             >
                               {a.deltaPct !== null ? formatPct(a.deltaPct) : "-"}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[11px] font-bold tabular-nums text-foreground">
+                            <td className="px-2.5 py-2 text-right text-xs font-bold tabular-nums text-foreground">
                               {formatRupiah(a.currRevenue)}
                             </td>
                             <td
                               className={cn(
-                                "px-2 py-1.5 text-right text-[11px] tabular-nums",
+                                "px-2.5 py-2 text-right text-xs tabular-nums",
                                 a.revenueChange < 0
-                                  ? "text-red-400"
+                                  ? "text-red-700 dark:text-red-400"
                                   : a.revenueChange > 0
-                                    ? "text-emerald-400"
+                                    ? "text-emerald-700 dark:text-emerald-300"
                                     : "text-muted-foreground",
                               )}
                             >
-                              {a.revenueChange < 0 ? "−" : a.revenueChange > 0 ? "+" : ""}
+                              {a.revenueChange < 0 ? "-" : a.revenueChange > 0 ? "+" : ""}
                               {formatRupiah(Math.abs(a.revenueChange))}
                             </td>
-                            <td className="px-2 py-1.5 text-center">
-                              <span className={cn("inline-flex items-center gap-0.5 text-[10px] font-bold", trendConf.color)}>
-                                <TrendIcon className="h-3 w-3" />
+                            <td className="px-2.5 py-2 text-center">
+                              <span className={cn("inline-flex items-center gap-1 text-xs font-semibold", trendConf.color)}>
+                                <TrendIcon aria-hidden="true" className="h-3.5 w-3.5" />
                                 {trendConf.label}
                               </span>
                             </td>
@@ -545,13 +555,13 @@ export function SnackAnalysisDialog({
             {result.recommendations && result.recommendations.length > 0 && (
               <section>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Target className="h-3.5 w-3.5 text-purple-300" />
+                  <Target aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
                   Rekomendasi Operasional
                 </h3>
                 <ul className="space-y-1">
                   {result.recommendations.map((r, i) => (
-                    <li key={i} className="flex gap-1.5 text-xs text-foreground/80">
-                      <span className="text-purple-300">•</span>
+                    <li key={i} className="flex gap-2 text-xs leading-relaxed text-foreground/90">
+                      <span aria-hidden="true" className="font-bold text-primary">-</span>
                       <span>{r}</span>
                     </li>
                   ))}
@@ -561,8 +571,8 @@ export function SnackAnalysisDialog({
 
             {/* Generated timestamp */}
             {result.generatedAt && (
-              <div className="border-t border-white/5 pt-2 text-[10px] text-muted-foreground">
-                Generated at {new Date(result.generatedAt).toLocaleString("id-ID")}
+              <div className="border-t border-border pt-2 text-xs text-muted-foreground">
+                Dibuat pada {new Date(result.generatedAt).toLocaleString("id-ID")}
               </div>
             )}
           </div>

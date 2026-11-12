@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import ZAI from "z-ai-web-dev-sdk";
+import { generateGeminiJson } from "@/lib/gemini";
 import {
   fetchPrevMonthCompare,
+  fetchSheetRecordsBySourceId,
   computePrevMonthRange,
 } from "@/lib/dashboard/cross-sheet-compare";
 import {
@@ -232,21 +233,17 @@ export async function POST(request: Request) {
     });
   }
 
-  // 3. Need to also fetch CURRENT period records. We don't have direct access here,
-  // but the API caller should pass them. As fallback, we re-fetch from /api/sheets.
-  // For simplicity, accept currentRecords in body OR fetch from active sheet.
+  // 3. Fetch current period records directly in-process (serverless-safe).
   let currentRecords: TransactionRecord[] = [];
   try {
-    const sheetsRes = await fetch(
-      `http://localhost:3000/api/sheets?_t=${Date.now()}`,
-      { cache: "no-store" },
-    );
-    if (sheetsRes.ok) {
-      const sheetsData = await sheetsRes.json();
-      currentRecords = sheetsData.records || [];
-    }
-  } catch {
-    // ignore
+    const curr = await fetchSheetRecordsBySourceId(body.activeSourceId);
+    currentRecords = curr.records;
+  } catch (e) {
+    return NextResponse.json({
+      available: false,
+      unavailableReason: `Gagal fetch data periode berjalan: ${e instanceof Error ? e.message : "unknown error"}`,
+      prevDateRange,
+    });
   }
 
   // Filter current records to current date range
@@ -518,85 +515,19 @@ PENTING:
 - Output HARUS JSON valid lengkap, jangan terpotong di tengah.`;
 
   try {
-    const ai = await ZAI.create();
-    const completion = await ai.chat.completions.create({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.4,
-      max_tokens: 4000,
-    });
-
-    const raw = completion.choices?.[0]?.message?.content ?? "";
-    const finishReason = completion.choices?.[0]?.finish_reason;
-    const wasTruncated = finishReason === "length";
-
-    // Try multiple JSON extraction strategies since model may truncate or add prose
-    let parsed: {
+    const { parsed } = await generateGeminiJson<{
       narrative?: string;
       suspectedStockout?: string[];
       revenueLossEstimate?: string;
       restockPriority?: Array<{ item: string; priority: string; reason: string }>;
       recommendations?: string[];
       paymentMethodAnalysis?: string;
-    } = {};
-
-    // Helper: aggressive JSON repair
-    function repairJson(s: string): string {
-      let repaired = s;
-      // Remove markdown code fences if any
-      repaired = repaired.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
-      // Remove trailing comma before ] or }
-      repaired = repaired.replace(/,\s*([\]}])/g, "$1");
-      // Close unclosed string literals (if truncated mid-string)
-      // Find last complete key-value pair
-      const openBraces = (repaired.match(/\{/g) || []).length;
-      const closeBraces = (repaired.match(/\}/g) || []).length;
-      const openBrackets = (repaired.match(/\[/g) || []).length;
-      const closeBrackets = (repaired.match(/\]/g) || []).length;
-      // If there's an unclosed string (odd number of unescaped quotes), close it
-      const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
-      if (quoteCount % 2 !== 0) {
-        repaired += '"';
-      }
-      // Close unclosed arrays
-      for (let i = 0; i < openBrackets - closeBrackets; i++) repaired += "]";
-      // Close unclosed objects
-      for (let i = 0; i < openBraces - closeBraces; i++) repaired += "}";
-      return repaired;
-    }
-
-    // Strategy 1: try to find complete JSON object via regex
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        parsed = JSON.parse(jsonMatch[0]);
-      } catch {
-        // Strategy 2: try repaired version
-        const repaired = repairJson(jsonMatch[0]);
-        try {
-          parsed = JSON.parse(repaired);
-        } catch {
-          // Strategy 3: try to extract partial - find the last complete key
-          // and truncate there, then close braces
-          const partialRaw = raw.includes("{") ? raw.slice(raw.indexOf("{")) : raw;
-          const repairedPartial = repairJson(partialRaw);
-          try {
-            parsed = JSON.parse(repairedPartial);
-          } catch {
-            // Strategy 4: fallback - treat whole output as narrative
-            parsed = {
-              narrative: wasTruncated
-                ? raw + "\n\n[Catatan: output AI terpotong karena limit token. Data item tetap tersedia di tabel di bawah.]"
-                : raw,
-            };
-          }
-        }
-      }
-    } else {
-      parsed = { narrative: raw };
-    }
+    }>({
+      systemPrompt: SYSTEM_PROMPT,
+      userPrompt,
+      temperature: 0.4,
+      maxOutputTokens: 4096,
+    });
 
     return NextResponse.json({
       available: true,

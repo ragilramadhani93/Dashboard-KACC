@@ -41,36 +41,37 @@ export function SheetSelector({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
+          type="button"
           variant="outline"
           size="sm"
-          className="gap-1.5 border-white/10 bg-white/5 text-xs hover:bg-white/10"
+          className="min-h-10 gap-1.5 text-xs"
         >
-          <Calendar className="h-3.5 w-3.5 text-cyan-400" />
+          <Calendar aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
           <span className="font-medium">
             {loading ? "Memuat..." : active?.label ?? "Pilih Sheet"}
           </span>
           {active?.dataStart && active?.dataEnd && (
-            <span className="hidden text-[10px] text-muted-foreground md:inline">
-              ({active.dataStart} → {active.dataEnd})
+            <span className="hidden text-xs text-muted-foreground md:inline">
+              ({active.dataStart} s/d {active.dataEnd})
             </span>
           )}
-          <ChevronDown className="h-3 w-3 opacity-60" />
+          <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[280px]">
-        <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+      <DropdownMenuContent align="end" className="w-[290px]">
+        <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
           Pilih Periode Sheet
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {sources.length === 0 && (
-          <div className="px-2 py-3 text-center text-[10px] text-muted-foreground">
+          <div className="px-2 py-3 text-center text-xs text-muted-foreground">
             Belum ada sheet terdaftar.
           </div>
         )}
         {sources.map((s) => (
           <DropdownMenuItem
             key={s.id}
-            className="flex cursor-pointer items-start gap-2 px-2 py-2 text-xs"
+            className="flex min-h-10 cursor-pointer items-start gap-2 px-2.5 py-2 text-xs"
             onClick={() => handleActivate(s.id)}
             disabled={switching === s.id}
           >
@@ -79,33 +80,33 @@ export function SheetSelector({
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-foreground">{s.label}</span>
                   {s.isActive && (
-                    <Check className="h-3 w-3 text-emerald-400" />
+                    <Check aria-hidden="true" className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
                   )}
                 </div>
                 {s.dataStart && s.dataEnd && (
-                  <p className="text-[10px] text-muted-foreground">
-                    {s.dataStart} → {s.dataEnd}
+                  <p className="text-xs text-muted-foreground">
+                    {s.dataStart} s/d {s.dataEnd}
                   </p>
                 )}
                 {s.rowCount !== null && (
-                  <p className="text-[9px] text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground">
                     {s.rowCount.toLocaleString("id-ID")} baris
                   </p>
                 )}
               </div>
               {switching === s.id && (
-                <span className="text-[10px] text-cyan-300">switching...</span>
+                <span className="text-xs text-primary">Memuat...</span>
               )}
             </div>
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="flex cursor-pointer items-center gap-1.5 px-2 py-2 text-xs text-emerald-300"
+          className="flex min-h-10 cursor-pointer items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-primary"
           onClick={onOpenManager}
         >
-          <Settings2 className="h-3.5 w-3.5" />
-          Kelola Sheet (add / delete)
+          <Settings2 aria-hidden="true" className="h-3.5 w-3.5" />
+          Kelola Sheet (Tambah / Hapus)
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -75,7 +75,7 @@ Panduan lengkap deploy KACC Dashboard ke Vercel dengan database Supabase.
    |------|-------|--------------|
    | `DATABASE_URL` | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1` | Production, Preview, Development |
    | `ADMIN_PIN` | `kacc2026` (atau PIN custom Anda) | Production, Preview, Development |
-   | `ZAI_API_KEY` | *(dari Z.ai - opsional, untuk AI Insight)* | Production, Preview, Development |
+   | `GEMINI_API_KEY` | *(dari Google AI Studio - opsional, untuk AI Insight)* | Production, Preview, Development |
 
    - **PENTING**: Ganti `[password]` di DATABASE_URL dengan password Supabase Anda yang sebenarnya
 
@@ -163,7 +163,7 @@ Setelah deploy sukses, Anda perlu setup database schema di Supabase.
 - Kalau timeout: Vercel Hobby plan punya limit 10s untuk non-pro functions. Upgrade ke Pro untuk 60s.
 
 ### Error: "AI Insight gagal"
-- Pastikan `ZAI_API_KEY` sudah set di Vercel env vars
+- Pastikan `GEMINI_API_KEY` sudah set di Vercel env vars
 - Cek Vercel function logs: Dashboard → Functions → pilih endpoint → Logs
 
 ### Error: "Pin admin salah"

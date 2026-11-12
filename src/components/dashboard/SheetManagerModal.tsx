@@ -29,6 +29,8 @@ import {
   XCircle,
   ChevronDown,
   ChevronRight,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +72,7 @@ export function SheetManagerModal({
 }: SheetManagerModalProps) {
   const { toast } = useToast();
   const [pin, setPin] = useState(DEFAULT_PIN);
+  const [showPin, setShowPin] = useState(false);
   const [pinVerified, setPinVerified] = useState(false);
 
   // Add form state
@@ -319,96 +322,121 @@ export function SheetManagerModal({
         <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto sm:max-w-lg">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <ShieldCheck aria-hidden="true" className="h-4 w-4 text-primary" />
               Kelola Sumber Sheet
             </SheetTitle>
             <SheetDescription>
-              Tambah / ganti / hapus sheet Google Sheets. Sheet aktif = data yang
-              ditampilkan di dashboard. Data lama tetap tersimpan, tidak hilang.
+              Tambah, ganti, atau hapus sheet Google Sheets. Sheet aktif menentukan data yang
+              ditampilkan di dashboard. Data sumber lama tetap tersimpan.
             </SheetDescription>
           </SheetHeader>
 
           {/* PIN verification gate */}
           {!pinVerified ? (
-            <div className="space-y-3 rounded-lg border border-white/10 bg-card/40 p-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Verifikasi PIN admin
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                verifyPin();
+              }}
+              className="space-y-3 rounded-lg border border-border bg-muted/40 p-4"
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-pin-input" className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+                  PIN Admin
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="admin-pin-input"
+                    type={showPin ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    placeholder="Masukkan PIN admin"
+                    className="h-10 pr-11 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin((v) => !v)}
+                    aria-label={showPin ? "Sembunyikan PIN" : "Tampilkan PIN"}
+                    className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+                  >
+                    {showPin ? (
+                      <EyeOff aria-hidden="true" className="h-4 w-4" />
+                    ) : (
+                      <Eye aria-hidden="true" className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
-              <Input
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="PIN admin"
-                onKeyDown={(e) => e.key === "Enter" && verifyPin()}
-              />
               <Button
+                type="submit"
                 size="sm"
-                className="w-full bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                onClick={verifyPin}
+                className="min-h-10 w-full bg-primary text-xs text-primary-foreground hover:bg-primary/90"
               >
-                Verifikasi
+                Verifikasi PIN
               </Button>
-              <p className="text-[10px] text-muted-foreground">
-                Default: <code className="font-mono">kacc2026</code> (bisa diubah via env ADMIN_PIN)
+              <p className="text-xs text-muted-foreground">
+                Default: <code className="font-mono text-foreground">kacc2026</code> (dapat diubah via env ADMIN_PIN)
               </p>
-            </div>
+            </form>
           ) : (
             <div className="space-y-4">
               {/* Add new sheet form */}
-              <div className="space-y-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
-                  <Plus className="h-3.5 w-3.5" />
+              <div className="space-y-3 rounded-lg border border-primary/35 bg-primary/[0.04] p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+                  <Plus aria-hidden="true" className="h-4 w-4" />
                   Tambah Sheet Baru
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div>
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Label htmlFor="sheet-label" className="text-xs font-medium text-foreground">
                       Label (mis. &quot;September 2026&quot;)
                     </Label>
                     <Input
+                      id="sheet-label"
                       value={label}
                       onChange={(e) => setLabel(e.target.value)}
                       placeholder="September 2026"
-                      className="mt-1 h-8 text-xs"
+                      className="mt-1 h-9 text-xs"
                     />
                   </div>
                   <div>
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      URL Google Sheets (paste lengkap dari address bar)
+                    <Label htmlFor="sheet-url" className="text-xs font-medium text-foreground">
+                      URL Google Sheets (salin lengkap dari address bar)
                     </Label>
                     <Input
+                      id="sheet-url"
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
                       placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=..."
-                      className="mt-1 h-8 font-mono text-[10px]"
+                      className="mt-1 h-9 font-mono text-xs"
                     />
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      Tip: buka tab Google Sheets yang berisi data, copy URL dari
-                      address bar (termasuk #gid=...), paste di sini.
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Buka tab Google Sheets yang berisi data, lalu salin URL lengkap termasuk <code className="font-mono">#gid=...</code>.
                     </p>
                   </div>
 
                   {/* Live URL parse preview */}
                   {url.trim() && (
-                    <div className="rounded-md bg-white/5 px-2 py-1.5 text-[10px]">
+                    <div className="rounded-md border border-border bg-muted/50 px-2.5 py-2 text-xs">
                       {parsedUrl ? (
-                        <div className="flex flex-wrap items-center gap-1 text-emerald-300">
-                          <CheckCircle2 className="h-3 w-3" />
-                          <span>Parsed:</span>
-                          <Badge variant="outline" className="h-4 px-1 text-[9px] border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+                        <div className="flex flex-wrap items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
+                          <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />
+                          <span>Terbaca:</span>
+                          <Badge variant="outline" className="h-5 px-1.5 text-[11px] border-emerald-700/30 bg-emerald-700/10 text-emerald-800 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300">
                             <span className="font-mono">sheetId: {parsedUrl.sheetId.slice(0, 16)}...</span>
                           </Badge>
-                          <Badge variant="outline" className="h-4 px-1 text-[9px] border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
+                          <Badge variant="outline" className="h-5 px-1.5 text-[11px] border-primary/35 bg-primary/10 text-primary">
                             <span className="font-mono">gid: {parsedUrl.gid}</span>
                           </Badge>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1 text-amber-300">
-                          <AlertCircle className="h-3 w-3" />
+                        <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                          <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                           <span>
                             URL tidak dikenali. Pastikan format /d/{`{ID}`}/edit#gid=
-                            atau gunakan Advanced di bawah untuk input manual.
+                            atau gunakan opsi lanjutan di bawah.
                           </span>
                         </div>
                       )}
@@ -417,82 +445,87 @@ export function SheetManagerModal({
 
                   {/* Advanced toggle for manual sheetId/gid */}
                   <button
-                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                    type="button"
+                    aria-expanded={advancedOpen}
+                    className="flex min-h-9 items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
                     onClick={() => setAdvancedOpen(!advancedOpen)}
                   >
                     {advancedOpen ? (
-                      <ChevronDown className="h-3 w-3" />
+                      <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
                     ) : (
-                      <ChevronRight className="h-3 w-3" />
+                      <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
                     )}
-                    Advanced (input manual sheetId / gid)
+                    Opsi Lanjutan (input manual sheetId / gid)
                   </button>
                   {advancedOpen && (
-                    <div className="space-y-2 rounded-md bg-white/5 p-2">
+                    <div className="space-y-2.5 rounded-md border border-border bg-muted/40 p-3">
                       <div>
-                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <Label htmlFor="manual-sheet-id" className="text-xs font-medium text-foreground">
                           Manual sheetId
                         </Label>
                         <Input
+                          id="manual-sheet-id"
                           value={manualSheetId}
                           onChange={(e) => setManualSheetId(e.target.value)}
-                          placeholder="1A2B3C... (44 chars)"
-                          className="mt-1 h-8 font-mono text-[10px]"
+                          placeholder="1A2B3C... (44 karakter)"
+                          className="mt-1 h-9 font-mono text-xs"
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <Label htmlFor="manual-gid" className="text-xs font-medium text-foreground">
                           Manual gid (tab ID, angka)
                         </Label>
                         <Input
+                          id="manual-gid"
                           value={manualGid}
                           onChange={(e) => setManualGid(e.target.value)}
                           placeholder="0 (default tab) atau 123456789"
-                          className="mt-1 h-8 font-mono text-[10px]"
+                          className="mt-1 h-9 font-mono text-xs"
                         />
-                        <p className="mt-1 text-[10px] text-muted-foreground">
-                          gid ada di URL setelah <code className="font-mono">#gid=</code>.
-                          Kalau tab cuma 1, biasanya gid=0.
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          gid berada di URL setelah <code className="font-mono">#gid=</code> (tab pertama biasanya 0).
                         </p>
                       </div>
                     </div>
                   )}
 
-                  {/* Test Fetch button */}
-                  <div className="flex gap-2">
+                  {/* Test Fetch + Save buttons */}
+                  <div className="flex flex-wrap gap-2">
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
-                      className="gap-1.5 border-cyan-500/30 bg-cyan-500/10 text-xs text-cyan-300 hover:bg-cyan-500/20"
+                      className="min-h-10 gap-1.5 text-xs"
                       onClick={handleTestFetch}
                       disabled={testing || (!url.trim() && !manualSheetId.trim())}
                     >
                       {testing ? (
                         <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Testing...
+                          <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
+                          Menguji...
                         </>
                       ) : (
                         <>
-                          <FlaskConical className="h-3.5 w-3.5" />
+                          <FlaskConical aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
                           Test Fetch
                         </>
                       )}
                     </Button>
                     <Button
+                      type="button"
                       size="sm"
-                      className="gap-1.5 bg-emerald-500/15 text-xs text-emerald-300 hover:bg-emerald-500/25"
+                      className="min-h-10 gap-1.5 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
                       onClick={handleAdd}
                       disabled={adding}
                     >
                       {adding ? (
                         <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
                           Menyimpan...
                         </>
                       ) : (
                         <>
-                          <Plus className="h-3.5 w-3.5" />
+                          <Plus aria-hidden="true" className="h-3.5 w-3.5" />
                           Tambah &amp; Aktifkan
                         </>
                       )}
@@ -502,18 +535,19 @@ export function SheetManagerModal({
                   {/* Test result display */}
                   {testResult && (
                     <div
+                      role="status"
                       className={cn(
-                        "rounded-md border px-3 py-2 text-[11px]",
+                        "rounded-md border px-3 py-2 text-xs",
                         testResult.ok
-                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                          : "border-red-500/30 bg-red-500/10 text-red-300",
+                          ? "border-emerald-700/35 bg-emerald-700/10 text-emerald-800 dark:border-emerald-400/35 dark:bg-emerald-400/10 dark:text-emerald-300"
+                          : "border-destructive/35 bg-destructive/10 text-red-700 dark:text-red-300",
                       )}
                     >
-                      <div className="flex items-start gap-1.5">
+                      <div className="flex items-start gap-2">
                         {testResult.ok ? (
-                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <CheckCircle2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                         ) : (
-                          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <XCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                         )}
                         <div className="flex-1 space-y-1">
                           <p className="font-semibold">
@@ -523,17 +557,17 @@ export function SheetManagerModal({
                             {testResult.ok ? testResult.message : testResult.error}
                           </p>
                           {testResult.rowCount !== undefined && (
-                            <p className="text-[10px] opacity-80">
-                              Row count: {testResult.rowCount.toLocaleString("id-ID")}
+                            <p className="text-xs opacity-90">
+                              Jumlah baris: {testResult.rowCount.toLocaleString("id-ID")}
                             </p>
                           )}
                           {testResult.missingHeaders && testResult.missingHeaders.length > 0 && (
-                            <p className="text-[10px] opacity-80">
+                            <p className="text-xs opacity-90">
                               Kolom hilang: {testResult.missingHeaders.join(", ")}
                             </p>
                           )}
                           {testResult.actualHeaders && (
-                            <p className="text-[10px] opacity-80">
+                            <p className="text-xs opacity-90">
                               Headers ({testResult.actualHeaders.length}):{" "}
                               {testResult.actualHeaders.slice(0, 6).join(", ")}
                               {testResult.actualHeaders.length > 6 ? ", ..." : ""}
@@ -545,14 +579,15 @@ export function SheetManagerModal({
                   )}
 
                   <div>
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Label htmlFor="sheet-note" className="text-xs font-medium text-foreground">
                       Catatan (opsional)
                     </Label>
                     <Input
+                      id="sheet-note"
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="Catatan internal..."
-                      className="mt-1 h-8 text-xs"
+                      className="mt-1 h-9 text-xs"
                     />
                   </div>
                 </div>
@@ -567,7 +602,7 @@ export function SheetManagerModal({
                 </div>
                 <div className="space-y-2">
                   {sources.length === 0 && (
-                    <div className="rounded-md border border-white/5 bg-card/40 p-4 text-center text-xs text-muted-foreground">
+                    <div className="rounded-lg border border-border bg-muted/40 p-4 text-center text-xs text-muted-foreground">
                       Belum ada sheet terdaftar.
                     </div>
                   )}
@@ -577,12 +612,12 @@ export function SheetManagerModal({
                       className={cn(
                         "rounded-lg border p-3 transition-colors",
                         s.isActive
-                          ? "border-emerald-500/40 bg-emerald-500/5"
-                          : "border-white/10 bg-card/40 hover:border-white/20",
+                          ? "border-primary/45 bg-primary/[0.05]"
+                          : "border-border bg-card",
                       )}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 space-y-1">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-foreground">
                               {s.label}
@@ -590,23 +625,23 @@ export function SheetManagerModal({
                             {s.isActive && (
                               <Badge
                                 variant="outline"
-                                className="h-4 px-1 text-[9px] border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                className="h-5 px-1.5 text-[11px] font-semibold border-emerald-700/35 bg-emerald-700/10 text-emerald-800 dark:border-emerald-400/35 dark:bg-emerald-400/10 dark:text-emerald-300"
                               >
                                 AKTIF
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Hash className="h-2.5 w-2.5" />
-                            <span className="font-mono">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Hash aria-hidden="true" className="h-3 w-3" />
+                            <span className="truncate font-mono">
                               {s.sheetId.slice(0, 16)}.../{s.gid}
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                             {s.dataStart && s.dataEnd && (
                               <span className="flex items-center gap-1">
-                                <Calendar className="h-2.5 w-2.5" />
-                                {formatDateLong(s.dataStart)} → {formatDateLong(s.dataEnd)}
+                                <Calendar aria-hidden="true" className="h-3 w-3" />
+                                {formatDateLong(s.dataStart)} s/d {formatDateLong(s.dataEnd)}
                               </span>
                             )}
                             {s.rowCount !== null && (
@@ -614,41 +649,43 @@ export function SheetManagerModal({
                             )}
                             {s.lastFetchedAt && (
                               <span>
-                                fetch: {new Date(s.lastFetchedAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}
+                                Fetch: {new Date(s.lastFetchedAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}
                               </span>
                             )}
                           </div>
                           {s.note && (
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               {s.note}
                             </p>
                           )}
                         </div>
-                        <div className="flex shrink-0 flex-col gap-1">
+                        <div className="flex shrink-0 flex-row gap-1.5 sm:flex-col">
                           {!s.isActive && (
                             <Button
+                              type="button"
                               size="sm"
                               variant="outline"
-                              className="h-6 gap-1 px-2 text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                              className="min-h-9 gap-1 px-2.5 text-xs border-emerald-700/35 bg-emerald-700/10 text-emerald-800 hover:bg-emerald-700/20 dark:border-emerald-400/35 dark:bg-emerald-400/10 dark:text-emerald-300"
                               disabled={activatingId === s.id}
                               onClick={() => handleActivate(s.id, s.label)}
                             >
                               {activatingId === s.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
+                                <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
                               ) : (
-                                <CheckCircle2 className="h-3 w-3" />
+                                <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />
                               )}
                               Aktifkan
                             </Button>
                           )}
                           <Button
+                            type="button"
                             size="sm"
                             variant="outline"
-                            className="h-6 gap-1 px-2 text-[10px] border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                            className="min-h-9 gap-1 px-2.5 text-xs border-destructive/35 bg-destructive/10 text-red-700 hover:bg-destructive/20 dark:text-red-400"
                             disabled={s.isActive && sources.length === 1}
                             onClick={() => setDeleteTarget(s)}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
                             Hapus
                           </Button>
                         </div>
@@ -659,11 +696,10 @@ export function SheetManagerModal({
               </div>
 
               {sources.length > 0 && (
-                <div className="rounded-md bg-amber-500/5 px-3 py-2 text-[10px] text-amber-300">
-                  <AlertCircle className="mr-1 inline h-3 w-3" />
+                <div className="rounded-lg border border-amber-600/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                  <AlertCircle aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5" />
                   Pastikan struktur kolom sheet baru sama dengan sheet Okt
-                  (header: Transaction Number, Opened Date, Outlet Name, dll).
-                  Jangan rename/urut ulang header.
+                  (Transaction Number, Opened Date, Outlet Name, dll) dan jangan ubah nama header.
                 </div>
               )}
             </div>
@@ -671,9 +707,10 @@ export function SheetManagerModal({
 
           <SheetFooter>
             <Button
+              type="button"
               variant="outline"
               size="sm"
-              className="border-white/10 bg-white/5 text-xs hover:bg-white/10"
+              className="min-h-10 text-xs"
               onClick={() => onOpenChange(false)}
             >
               Tutup
@@ -689,8 +726,8 @@ export function SheetManagerModal({
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-400">
-              <AlertCircle className="h-4 w-4" />
+            <DialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
+              <AlertCircle aria-hidden="true" className="h-4 w-4" />
               Konfirmasi Hapus Sheet
             </DialogTitle>
             <DialogDescription className="text-xs">
@@ -701,32 +738,32 @@ export function SheetManagerModal({
               ?
               <br />
               <br />
-              Data Google Sheets-nya tidak dihapus (hanya dihapus dari daftar di
-              dashboard). Sheet bisa ditambahkan lagi kapan saja dengan URL yang
-              sama.
+              Data Google Sheets tidak dihapus (hanya dihapus dari daftar di
+              dashboard) dan bisa ditambahkan kembali kapan saja dengan URL yang sama.
               {deleteTarget?.isActive && (
-                <span className="mt-2 block rounded-md bg-amber-500/10 px-2 py-1 text-[10px] text-amber-300">
-                  Sheet ini sedang aktif - dashboard akan menampilkan sheet
-                  sebelumnya (atau error jika tidak ada lainnya).
+                <span className="mt-2 block rounded-md border border-amber-600/25 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-800 dark:text-amber-300">
+                  Sheet ini sedang aktif: dashboard akan beralih ke sheet sebelumnya atau meminta sumber baru.
                 </span>
               )}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
+              type="button"
               variant="outline"
               size="sm"
-              className="text-xs"
+              className="min-h-10 text-xs"
               onClick={() => setDeleteTarget(null)}
             >
               Batal
             </Button>
             <Button
+              type="button"
               size="sm"
-              className="gap-1.5 bg-red-500/15 text-red-400 hover:bg-red-500/25"
+              className="min-h-10 gap-1.5 bg-destructive text-xs text-white hover:bg-destructive/90"
               onClick={handleDelete}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
               Ya, Hapus
             </Button>
           </DialogFooter>

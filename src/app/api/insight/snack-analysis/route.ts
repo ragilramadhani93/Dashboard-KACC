@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import ZAI from "z-ai-web-dev-sdk";
+import { generateGeminiJson } from "@/lib/gemini";
 import {
   fetchPrevMonthCompare,
+  fetchSheetRecordsBySourceId,
   computePrevMonthRange,
 } from "@/lib/dashboard/cross-sheet-compare";
 import {
@@ -101,22 +102,6 @@ function classifyTrend(
   return "stable";
 }
 
-// Helper: aggressive JSON repair
-function repairJson(s: string): string {
-  let repaired = s;
-  repaired = repaired.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
-  repaired = repaired.replace(/,\s*([\]}])/g, "$1");
-  const openBraces = (repaired.match(/\{/g) || []).length;
-  const closeBraces = (repaired.match(/\}/g) || []).length;
-  const openBrackets = (repaired.match(/\[/g) || []).length;
-  const closeBrackets = (repaired.match(/\]/g) || []).length;
-  const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
-  if (quoteCount % 2 !== 0) repaired += '"';
-  for (let i = 0; i < openBrackets - closeBrackets; i++) repaired += "]";
-  for (let i = 0; i < openBraces - closeBraces; i++) repaired += "}";
-  return repaired;
-}
-
 export async function POST(request: Request) {
   let body: SnackAnalysisRequest;
   try {
@@ -150,19 +135,17 @@ export async function POST(request: Request) {
     });
   }
 
-  // Fetch current period records
+  // Fetch current period records directly in-process (serverless-safe).
   let currentRecords: TransactionRecord[] = [];
   try {
-    const sheetsRes = await fetch(
-      `http://localhost:3000/api/sheets?_t=${Date.now()}`,
-      { cache: "no-store" },
-    );
-    if (sheetsRes.ok) {
-      const sheetsData = await sheetsRes.json();
-      currentRecords = sheetsData.records || [];
-    }
-  } catch {
-    // ignore
+    const curr = await fetchSheetRecordsBySourceId(body.activeSourceId);
+    currentRecords = curr.records;
+  } catch (e) {
+    return NextResponse.json({
+      available: false,
+      unavailableReason: `Gagal fetch data periode berjalan: ${e instanceof Error ? e.message : "unknown error"}`,
+      prevDateRange,
+    });
   }
 
   const filterState: FilterState = {
@@ -306,47 +289,19 @@ PENTING:
 - Format alasan singkat: "ITEM - 1 kalimat alasan" supaya efficient tokens.`;
 
   try {
-    const ai = await ZAI.create();
-    const completion = await ai.chat.completions.create({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.4,
-      max_tokens: 3000,
-    });
-
-    const raw = completion.choices?.[0]?.message?.content ?? "";
-
-    let parsed: {
+    const { parsed } = await generateGeminiJson<{
       narrative?: string;
       topPerformers?: string[];
       decliningItems?: string[];
       revenueSummary?: string;
       opportunities?: string[];
       recommendations?: string[];
-    } = {};
-
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        parsed = JSON.parse(jsonMatch[0]);
-      } catch {
-        const repaired = repairJson(jsonMatch[0]);
-        try {
-          parsed = JSON.parse(repaired);
-        } catch {
-          const partialRaw = raw.includes("{") ? raw.slice(raw.indexOf("{")) : raw;
-          try {
-            parsed = JSON.parse(repairJson(partialRaw));
-          } catch {
-            parsed = { narrative: raw };
-          }
-        }
-      }
-    } else {
-      parsed = { narrative: raw };
-    }
+    }>({
+      systemPrompt: SYSTEM_PROMPT,
+      userPrompt,
+      temperature: 0.4,
+      maxOutputTokens: 4096,
+    });
 
     return NextResponse.json({
       available: true,

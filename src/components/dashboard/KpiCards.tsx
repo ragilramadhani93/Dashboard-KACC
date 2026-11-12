@@ -6,54 +6,27 @@ import { formatRupiah, formatNumber, formatPct } from "@/lib/format";
 interface KpiCardProps {
   label: string;
   value: string;
-  deltaPct: number | null;
+  deltaPct?: number | null;
   hint?: string;
-  accent?: "emerald" | "cyan" | "amber" | "pink" | "purple";
+  featured?: boolean;
   icon?: React.ReactNode;
   alert?: boolean;
   alertMessage?: string;
+  className?: string;
 }
-
-const accentClasses: Record<string, { bar: string; text: string; glow: string }> = {
-  emerald: {
-    bar: "bg-emerald-400",
-    text: "text-emerald-400",
-    glow: "shadow-[0_0_24px_rgba(16,185,129,0.15)]",
-  },
-  cyan: {
-    bar: "bg-cyan-400",
-    text: "text-cyan-400",
-    glow: "shadow-[0_0_24px_rgba(34,211,238,0.15)]",
-  },
-  amber: {
-    bar: "bg-amber-400",
-    text: "text-amber-400",
-    glow: "shadow-[0_0_24px_rgba(245,158,11,0.15)]",
-  },
-  pink: {
-    bar: "bg-pink-400",
-    text: "text-pink-400",
-    glow: "shadow-[0_0_24px_rgba(244,114,182,0.15)]",
-  },
-  purple: {
-    bar: "bg-purple-400",
-    text: "text-purple-400",
-    glow: "shadow-[0_0_24px_rgba(192,132,252,0.15)]",
-  },
-};
 
 export function KpiCard({
   label,
   value,
-  deltaPct,
+  deltaPct = null,
   hint,
-  accent = "emerald",
+  featured = false,
   icon,
   alert,
   alertMessage,
+  className,
 }: KpiCardProps) {
-  const a = accentClasses[accent] ?? accentClasses.emerald;
-  const hasDelta = deltaPct !== null;
+  const hasDelta = deltaPct !== null && deltaPct !== undefined;
   const isPositive = hasDelta && deltaPct! > 0;
   const isNegative = hasDelta && deltaPct! < 0;
   const isFlat = hasDelta && deltaPct === 0;
@@ -61,52 +34,64 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        "relative rounded-xl border border-white/10 bg-card p-4 transition-all",
-        "hover:border-white/20 hover:bg-card/80",
-        a.glow,
-        alert && "glow-danger border-red-500/40",
+        "relative flex flex-col justify-between rounded-xl border bg-card p-4 transition-colors",
+        featured
+          ? "border-primary/45 bg-primary/[0.04] dark:bg-primary/[0.06]"
+          : "border-border",
+        alert && "border-destructive/60 bg-destructive/[0.04]",
+        className,
       )}
     >
-      <div className={cn("absolute top-0 left-4 right-4 h-0.5 rounded-b-full", a.bar)} />
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 space-y-1">
+          <div className="text-xs font-medium text-muted-foreground">
             {label}
           </div>
-          <div className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+          <div
+            className={cn(
+              "font-bold tracking-tight tabular-nums text-foreground",
+              featured ? "text-2xl sm:text-[26px]" : "text-xl sm:text-2xl",
+            )}
+          >
             {value}
           </div>
           {hint && (
-            <div className="text-[11px] text-muted-foreground">{hint}</div>
+            <div className="text-xs text-muted-foreground">{hint}</div>
           )}
         </div>
         {icon && (
-          <div className={cn("rounded-lg bg-white/5 p-2", a.text)}>
+          <div
+            aria-hidden="true"
+            className={cn(
+              "shrink-0 rounded-lg p-2",
+              featured ? "bg-primary text-primary-foreground" : "bg-muted text-primary",
+            )}
+          >
             {icon}
           </div>
         )}
       </div>
 
-      {/* Delta indicator */}
+      {/* Delta indicator (icon + sign + text, never color-only) */}
       {hasDelta && (
-        <div className="mt-3 flex items-center gap-1.5 text-xs">
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
           {isPositive && (
-            <>
-              <TrendingUp className={cn("h-3.5 w-3.5", a.text)} />
-              <span className={a.text}>+{formatPct(deltaPct!)}</span>
-            </>
+            <span className="inline-flex items-center gap-1 font-medium text-status-success">
+              <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" />
+              +{formatPct(deltaPct!)}
+            </span>
           )}
           {isNegative && (
-            <>
-              <TrendingDown className="h-3.5 w-3.5 text-red-400" />
-              <span className="text-red-400">{formatPct(deltaPct!)}</span>
-            </>
+            <span className="inline-flex items-center gap-1 font-medium text-status-danger">
+              <TrendingDown aria-hidden="true" className="h-3.5 w-3.5" />
+              {formatPct(deltaPct!)}
+            </span>
           )}
           {isFlat && (
-            <>
-              <Minus className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">0%</span>
-            </>
+            <span className="inline-flex items-center gap-1 font-medium text-muted-foreground">
+              <Minus aria-hidden="true" className="h-3.5 w-3.5" />
+              0%
+            </span>
           )}
           <span className="text-muted-foreground">vs periode sebelumnya</span>
         </div>
@@ -114,7 +99,7 @@ export function KpiCard({
 
       {/* Alert badge */}
       {alert && alertMessage && (
-        <div className="mt-2 rounded-md bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-400">
+        <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-status-danger">
           {alertMessage}
         </div>
       )}
@@ -156,46 +141,47 @@ export function KpiGrid({ kpi, prevKpi, hasPrev }: KpiGridProps) {
   const avgRevPerOutlet = kpi.outlets > 0 ? kpi.revenue / kpi.outlets : 0;
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
       <KpiCard
         label="Total Revenue"
         value={formatRupiah(kpi.revenue)}
         deltaPct={delta(kpi.revenue, prev?.revenue ?? null)}
-        accent="emerald"
+        featured
         icon={<TrendingUp className="h-4 w-4" />}
+        className="sm:col-span-2 lg:col-span-4"
       />
       <KpiCard
         label="Total Transaksi"
         value={formatNumber(kpi.transactions)}
         deltaPct={delta(kpi.transactions, prev?.transactions ?? null)}
-        accent="cyan"
+        className="lg:col-span-4"
       />
       <KpiCard
-        label="AOV"
+        label="Rata-rata Order (AOV)"
         value={formatRupiah(kpi.aov)}
         deltaPct={delta(kpi.aov, prev?.aov ?? null)}
-        hint="Avg Order Value"
-        accent="amber"
+        hint="Per transaksi"
+        className="lg:col-span-4"
       />
       <KpiCard
         label="Item Terjual"
         value={formatNumber(kpi.items)}
         deltaPct={delta(kpi.items, prev?.items ?? null)}
         hint={`${kpi.avgItemsPerTxn.toFixed(2)} item/txn`}
-        accent="pink"
+        className="lg:col-span-4"
       />
       <KpiCard
         label="Outlet Aktif"
         value={formatNumber(kpi.outlets)}
         deltaPct={delta(kpi.outlets, prev?.outlets ?? null)}
         hint={`Avg ${formatRupiah(avgRevPerOutlet)}/outlet`}
-        accent="purple"
+        className="lg:col-span-4"
       />
       <KpiCard
         label="Jam Puncak"
         value={`${String(kpi.peakHour).padStart(2, "0")}:00`}
         hint={`${formatNumber(kpi.uniqueItemTypes)} item unik`}
-        accent="cyan"
+        className="lg:col-span-4"
       />
     </div>
   );
