@@ -6,15 +6,9 @@ generator client {
 }
 
 datasource db {
-  // Supports both SQLite (preview/local) and PostgreSQL (Vercel/Supabase production).
-  // Set DATABASE_URL env var accordingly:
-  //   - SQLite:     file:./db/custom.db  → uncomment the sqlite provider below
-  //   - PostgreSQL: postgresql://user:pass@host:port/db?schema=public → use postgresql provider
-  //
-  // For local preview (SQLite): use the sqlite provider line
-  // For Vercel production (Supabase Postgres): use the postgresql provider line
-  provider = "sqlite"
-  // provider = "postgresql"
+  // Production: PostgreSQL (Supabase/Vercel)
+  // Set DATABASE_URL env var to: postgresql://user:pass@host:port/db?schema=public
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
