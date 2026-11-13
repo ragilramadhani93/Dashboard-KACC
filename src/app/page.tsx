@@ -954,7 +954,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="mt-auto border-t border-border py-5 text-center text-xs text-muted-foreground">
           <div>
-            KACC Dashboard Monitoring - Auto-refresh tiap 5 menit dari Google Sheets
+            Kapal Api Coffee Corner Sales Monitoring Dashboard - Auto-refresh tiap 5 menit dari Google Sheets
           </div>
           <div className="mt-1">
             Sumber:{" "}

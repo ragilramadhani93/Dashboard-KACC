@@ -14,19 +14,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KACC Dashboard | Monitoring Transaksi Outlet",
+  title: "Kapal Api Coffee Corner | Sales Monitoring Dashboard",
   description:
-    "Dashboard monitoring transaksi harian KACC (Kopi Aku Coffe Corner) dengan auto-refresh dari Google Sheets. KPI revenue, transaksi, outlet, menu, payment, dan operasional.",
+    "Dashboard monitoring transaksi harian Kapal Api Coffee Corner (KACC) dengan auto-refresh dari Google Sheets. KPI revenue, transaksi, outlet, menu, payment, dan operasional.",
   keywords: [
+    "Kapal Api",
+    "Coffee Corner",
     "KACC",
     "dashboard",
-    "monitoring",
+    "sales monitoring",
     "transaksi",
     "outlet",
     "kopi",
     "Indonesia",
   ],
-  authors: [{ name: "KACC Operations" }],
+  authors: [{ name: "Kapal Api Coffee Corner Operations" }],
+  icons: {
+    icon: "/kapal-api-logo.jpg",
+  },
 };
 
 const THEME_INIT_SCRIPT = `

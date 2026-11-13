@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { RefreshCw, Download, Loader2, CheckCircle2, AlertCircle, Coffee, Clock, Sun, Moon } from "lucide-react";
+import { RefreshCw, Download, Loader2, CheckCircle2, AlertCircle, Clock, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { formatDateLong } from "@/lib/dashboard/aggregate";
@@ -72,19 +72,15 @@ export function DashboardHeader({
       <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
         {/* Logo + title */}
         <div className="flex items-center gap-3">
-          <div
-            aria-hidden="true"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"
-          >
-            <Coffee className="h-5 w-5" />
-          </div>
+          <img
+            src="/kapal-api-logo.jpg"
+            alt="Kapal Api Coffee Corner"
+            className="h-10 sm:h-12 w-auto shrink-0 rounded-md bg-white p-0.5 object-contain shadow-xs border border-border/40"
+          />
           <div>
-            <h1 className="text-base font-bold leading-tight text-foreground">
-              KACC Dashboard Monitoring
+            <h1 className="text-base sm:text-lg font-bold leading-tight text-foreground">
+              Kapal Api Coffee Corner Sales Monitoring Dashboard
             </h1>
-            <p className="text-xs text-muted-foreground">
-              Kopi Aku Coffee Corner - Transaksi Outlet Real-time
-            </p>
           </div>
         </div>
 
