@@ -374,6 +374,16 @@ export default function Home() {
     [compareEnabled, prevRecords],
   );
 
+  // Sales Forecast to End-of-Month (declared before early returns to preserve hook order)
+  const prevMonthRevenueForForecast =
+    crossSheetCompareEnabled && crossSheetAvailable && crossSheetKpi.kpi
+      ? crossSheetKpi.kpi.revenue
+      : prevKpi?.revenue ?? null;
+
+  const salesForecast = useMemo(() => {
+    return calculateSalesForecast(dailyTrend, prevMonthRevenueForForecast);
+  }, [dailyTrend, prevMonthRevenueForForecast]);
+
   // Heatmap data
   const topOutletNames = useMemo(
     () => outletAgg.slice(0, 15).map((o) => o.outlet),
@@ -618,16 +628,6 @@ export default function Home() {
   const snackQty = snackItems.reduce((sum, i) => sum + i.qty, 0);
   const snackSharePct = kpi.revenue > 0 ? (snackRevenue / kpi.revenue) * 100 : 0;
   const topSnackItem = snackItems[0] ?? null;
-
-  // Sales Forecast to End-of-Month
-  const prevMonthRevenueForForecast =
-    crossSheetCompareEnabled && crossSheetAvailable && crossSheetKpi.kpi
-      ? crossSheetKpi.kpi.revenue
-      : prevKpi?.revenue ?? null;
-
-  const salesForecast = useMemo(() => {
-    return calculateSalesForecast(dailyTrend, prevMonthRevenueForForecast);
-  }, [dailyTrend, prevMonthRevenueForForecast]);
 
   return (
     <main
