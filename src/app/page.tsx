@@ -766,10 +766,10 @@ export default function Home() {
             title="Tren Revenue Harian"
             subtitle={
               crossSheetCompareEnabled && crossSheetAvailable
-                ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs bulan lalu ${formatDateLong(crossSheetPrevDateStart)} s/d ${formatDateLong(crossSheetPrevDateEnd)})${salesForecast && !salesForecast.isCompleteMonth ? " + Forecast EOM" : ""}`
+                ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs bulan lalu ${formatDateLong(crossSheetPrevDateStart)} s/d ${formatDateLong(crossSheetPrevDateEnd)})`
                 : compareEnabled
-                  ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs prev ${formatDateLong(prevDateStart)} s/d ${formatDateLong(prevDateEnd)})${salesForecast && !salesForecast.isCompleteMonth ? " + Forecast EOM" : ""}`
-                  : `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)}${salesForecast && !salesForecast.isCompleteMonth ? " + Forecast EOM" : ""}`
+                  ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs prev ${formatDateLong(prevDateStart)} s/d ${formatDateLong(prevDateEnd)})`
+                  : `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)}`
             }
             icon={<TrendingUp className="h-4 w-4" />}
             className="lg:col-span-2"
@@ -784,7 +784,6 @@ export default function Home() {
               compareEnabled={
                 (crossSheetCompareEnabled && crossSheetAvailable) || compareEnabled
               }
-              forecast={salesForecast?.projectedDays}
             />
           </SectionCard>
 
