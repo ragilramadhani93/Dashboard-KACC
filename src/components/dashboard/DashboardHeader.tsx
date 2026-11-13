@@ -73,14 +73,17 @@ export function DashboardHeader({
         {/* Logo + title */}
         <div className="flex items-center gap-3">
           <img
-            src="/kapal-api-logo.jpg"
+            src="/kapal-api-logo.png"
             alt="Kapal Api Coffee Corner"
-            className="h-10 sm:h-12 w-auto shrink-0 rounded-md bg-white p-0.5 object-contain shadow-xs border border-border/40"
+            className="h-11 sm:h-12 w-auto shrink-0 rounded-md bg-white p-1 object-contain shadow-xs border border-border/50"
           />
-          <div>
-            <h1 className="text-base sm:text-lg font-bold leading-tight text-foreground">
-              Kapal Api Coffee Corner Sales Monitoring Dashboard
+          <div className="flex flex-col">
+            <h1 className="text-sm sm:text-base md:text-lg font-bold leading-tight tracking-tight text-foreground">
+              Kapal Api Coffee Corner
             </h1>
+            <p className="text-xs font-medium text-muted-foreground">
+              Sales Monitoring Dashboard
+            </p>
           </div>
         </div>
 

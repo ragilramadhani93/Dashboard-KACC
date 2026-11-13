@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Kapal Api Coffee Corner Operations" }],
   icons: {
-    icon: "/kapal-api-logo.jpg",
+    icon: "/kapal-api-logo.png",
   },
 };
 
