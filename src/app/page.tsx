@@ -36,6 +36,8 @@ import { SheetManagerModal } from "@/components/dashboard/SheetManagerModal";
 import { HourlyDrilldownDialog } from "@/components/dashboard/HourlyDrilldownDialog";
 import { StockoutAnalysisDialog } from "@/components/dashboard/StockoutAnalysisDialog";
 import { SnackAnalysisDialog } from "@/components/dashboard/SnackAnalysisDialog";
+import { SalesForecastCard } from "@/components/dashboard/SalesForecastCard";
+import { calculateSalesForecast } from "@/lib/dashboard/forecast";
 import { useDashboardStore, computePresetRange } from "@/lib/dashboard/store";
 import {
   applyFilter,
@@ -617,6 +619,16 @@ export default function Home() {
   const snackSharePct = kpi.revenue > 0 ? (snackRevenue / kpi.revenue) * 100 : 0;
   const topSnackItem = snackItems[0] ?? null;
 
+  // Sales Forecast to End-of-Month
+  const prevMonthRevenueForForecast =
+    crossSheetCompareEnabled && crossSheetAvailable && crossSheetKpi.kpi
+      ? crossSheetKpi.kpi.revenue
+      : prevKpi?.revenue ?? null;
+
+  const salesForecast = useMemo(() => {
+    return calculateSalesForecast(dailyTrend, prevMonthRevenueForForecast);
+  }, [dailyTrend, prevMonthRevenueForForecast]);
+
   return (
     <main
       id="main-content"
@@ -743,16 +755,21 @@ export default function Home() {
           }
         />
 
+        {/* Sales Forecast sampai Akhir Bulan */}
+        {salesForecast && (
+          <SalesForecastCard forecast={salesForecast} />
+        )}
+
         {/* Revenue trend + Insight panel */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <SectionCard
             title="Tren Revenue Harian"
             subtitle={
               crossSheetCompareEnabled && crossSheetAvailable
-                ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs bulan lalu ${formatDateLong(crossSheetPrevDateStart)} s/d ${formatDateLong(crossSheetPrevDateEnd)})`
+                ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs bulan lalu ${formatDateLong(crossSheetPrevDateStart)} s/d ${formatDateLong(crossSheetPrevDateEnd)})${salesForecast && !salesForecast.isCompleteMonth ? " + Forecast EOM" : ""}`
                 : compareEnabled
-                  ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs prev ${formatDateLong(prevDateStart)} s/d ${formatDateLong(prevDateEnd)})`
-                  : `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)}`
+                  ? `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)} (vs prev ${formatDateLong(prevDateStart)} s/d ${formatDateLong(prevDateEnd)})${salesForecast && !salesForecast.isCompleteMonth ? " + Forecast EOM" : ""}`
+                  : `${formatDateLong(dateStart)} s/d ${formatDateLong(dateEnd)}${salesForecast && !salesForecast.isCompleteMonth ? " + Forecast EOM" : ""}`
             }
             icon={<TrendingUp className="h-4 w-4" />}
             className="lg:col-span-2"
@@ -767,6 +784,7 @@ export default function Home() {
               compareEnabled={
                 (crossSheetCompareEnabled && crossSheetAvailable) || compareEnabled
               }
+              forecast={salesForecast?.projectedDays}
             />
           </SectionCard>
 

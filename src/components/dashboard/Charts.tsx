@@ -45,36 +45,65 @@ interface TrendChartProps {
   current: TrendPoint[];
   previous?: TrendPoint[] | null;
   compareEnabled?: boolean;
+  forecast?: { date: string; revenue: number }[] | null;
   height?: number;
 }
 
-export function RevenueTrendChart({ current, previous, compareEnabled, height = 320 }: TrendChartProps) {
+export function RevenueTrendChart({
+  current,
+  previous,
+  compareEnabled,
+  forecast,
+  height = 320,
+}: TrendChartProps) {
   // Merge current + previous by index (since dates differ in compare mode)
   const maxLen = Math.max(current.length, previous?.length ?? 0);
   const merged: Array<{
     label: string;
     currDate: string;
     prevDate: string | null;
-    curr: number;
+    curr: number | null;
     prev: number | null;
+    forecast: number | null;
   }> = [];
+
   for (let i = 0; i < maxLen; i++) {
     const c = current[i];
     const p = previous?.[i];
+    // On the last actual point, anchor forecast so the dashed line connects seamlessly
+    const isLastActual = i === current.length - 1 && forecast && forecast.length > 0;
     merged.push({
       label: c ? formatDateShort(c.date) : p ? formatDateShort(p.date) : `${i + 1}`,
       currDate: c?.date ?? "",
       prevDate: p?.date ?? null,
       curr: c?.revenue ?? 0,
       prev: p?.revenue ?? null,
+      forecast: isLastActual && c ? c.revenue : null,
     });
   }
+
+  // Append remaining forecast days if provided
+  if (forecast && forecast.length > 0) {
+    for (const f of forecast) {
+      merged.push({
+        label: formatDateShort(f.date),
+        currDate: f.date,
+        prevDate: null,
+        curr: null,
+        prev: null,
+        forecast: f.revenue,
+      });
+    }
+  }
+
+  const hasForecast = forecast && forecast.length > 0;
 
   return (
     <ChartContainer
       config={{
-        curr: { label: "Periode Ini", color: CHART_COLORS.emerald },
+        curr: { label: "Realisasi Harian", color: CHART_COLORS.emerald },
         prev: { label: "Periode Sebelumnya", color: CHART_COLORS.primary },
+        forecast: { label: "Forecast Akhir Bulan", color: CHART_COLORS.amber },
       }}
       className="w-full"
       style={{ height }}
@@ -88,6 +117,10 @@ export function RevenueTrendChart({ current, previous, compareEnabled, height = 
           <linearGradient id="colorPrev" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={CHART_COLORS.primary} stopOpacity={0.25} />
             <stop offset="100%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="colorForecast" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={CHART_COLORS.amber} stopOpacity={0.25} />
+            <stop offset="100%" stopColor={CHART_COLORS.amber} stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -108,7 +141,11 @@ export function RevenueTrendChart({ current, previous, compareEnabled, height = 
           content={
             <ChartTooltipContent
               formatter={(value, name) => {
-                const labels: Record<string, string> = { curr: "Periode Ini", prev: "Periode Sebelumnya" };
+                const labels: Record<string, string> = {
+                  curr: "Realisasi Harian",
+                  prev: "Periode Sebelumnya",
+                  forecast: "Estimasi Forecast",
+                };
                 return (
                   <div className="flex w-full flex-col gap-0.5">
                     <span className="text-xs text-muted-foreground">
@@ -128,6 +165,7 @@ export function RevenueTrendChart({ current, previous, compareEnabled, height = 
           strokeWidth={2}
           fill="url(#colorCurr)"
           dot={false}
+          connectNulls
         />
         {compareEnabled && previous && (
           <Area
@@ -137,6 +175,18 @@ export function RevenueTrendChart({ current, previous, compareEnabled, height = 
             strokeWidth={1.75}
             strokeDasharray="4 3"
             fill="url(#colorPrev)"
+            dot={false}
+            connectNulls
+          />
+        )}
+        {hasForecast && (
+          <Area
+            type="monotone"
+            dataKey="forecast"
+            stroke={CHART_COLORS.amber}
+            strokeWidth={2}
+            strokeDasharray="4 3"
+            fill="url(#colorForecast)"
             dot={false}
             connectNulls
           />
