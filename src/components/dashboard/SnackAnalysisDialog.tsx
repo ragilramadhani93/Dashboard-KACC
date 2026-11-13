@@ -182,7 +182,7 @@ export function SnackAnalysisDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[95vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Cookie aria-hidden="true" className="h-5 w-5 text-primary" />
@@ -558,9 +558,12 @@ export function SnackAnalysisDialog({
                   <Target aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
                   Rekomendasi Operasional
                 </h3>
-                <ul className="space-y-1">
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {result.recommendations.map((r, i) => (
-                    <li key={i} className="flex gap-2 text-xs leading-relaxed text-foreground/90">
+                    <li
+                      key={i}
+                      className="flex gap-2 rounded-md border border-border/60 bg-muted/30 p-2.5 text-xs leading-relaxed text-foreground/90"
+                    >
                       <span aria-hidden="true" className="font-bold text-primary">-</span>
                       <span>{r}</span>
                     </li>

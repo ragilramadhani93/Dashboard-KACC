@@ -219,7 +219,7 @@ export function StockoutAnalysisDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[95vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PackageX aria-hidden="true" className="h-5 w-5 text-primary" />
@@ -299,14 +299,14 @@ export function StockoutAnalysisDialog({
           <div className="space-y-4">
             {/* Narrative */}
             {result.narrative && (
-              <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3">
+              <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3.5 sm:p-4">
                 <div className="mb-1.5 flex items-center gap-1.5">
-                  <FileText aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-semibold text-primary">
+                  <FileText aria-hidden="true" className="h-4 w-4 text-primary" />
+                  <span className="text-xs sm:text-sm font-semibold text-primary">
                     Ringkasan Analisa
                   </span>
                 </div>
-                <p className="text-xs leading-relaxed text-foreground">
+                <p className="text-xs sm:text-sm leading-relaxed text-foreground">
                   {result.narrative}
                 </p>
               </div>
@@ -349,11 +349,11 @@ export function StockoutAnalysisDialog({
                   <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 text-red-700 dark:text-red-400" />
                   Item Terindikasi Kuat Stock-Out
                 </h3>
-                <ul className="space-y-1.5">
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {result.suspectedStockout.map((s, i) => (
                     <li
                       key={i}
-                      className="flex gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-2.5 py-2 text-xs text-red-800 dark:text-red-200"
+                      className="flex gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-red-800 dark:text-red-200"
                     >
                       <span aria-hidden="true" className="font-bold">!</span>
                       <span>{s}</span>
@@ -370,11 +370,11 @@ export function StockoutAnalysisDialog({
                   <PackageX aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
                   Prioritas Restock
                 </h3>
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {result.restockPriority.map((p, i) => (
                     <div
                       key={i}
-                      className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 px-2.5 py-2"
+                      className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 px-3 py-2"
                     >
                       <Badge
                         variant="outline"
@@ -385,7 +385,7 @@ export function StockoutAnalysisDialog({
                       >
                         {p.priority}
                       </Badge>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="text-xs font-medium text-foreground">{p.item}</div>
                         <div className="text-xs text-muted-foreground">{p.reason}</div>
                       </div>
@@ -744,9 +744,12 @@ export function StockoutAnalysisDialog({
                   <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
                   Rekomendasi Operasional
                 </h3>
-                <ul className="space-y-1">
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {result.recommendations.map((r, i) => (
-                    <li key={i} className="flex gap-2 text-xs leading-relaxed text-foreground/90">
+                    <li
+                      key={i}
+                      className="flex gap-2 rounded-md border border-border/60 bg-muted/30 p-2.5 text-xs leading-relaxed text-foreground/90"
+                    >
                       <span aria-hidden="true" className="font-bold text-primary">-</span>
                       <span>{r}</span>
                     </li>
