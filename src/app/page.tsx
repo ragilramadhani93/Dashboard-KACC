@@ -37,7 +37,9 @@ import { HourlyDrilldownDialog } from "@/components/dashboard/HourlyDrilldownDia
 import { StockoutAnalysisDialog } from "@/components/dashboard/StockoutAnalysisDialog";
 import { SnackAnalysisDialog } from "@/components/dashboard/SnackAnalysisDialog";
 import { SalesForecastCard } from "@/components/dashboard/SalesForecastCard";
+import { DecliningOutletsCard } from "@/components/dashboard/DecliningOutletsCard";
 import { calculateSalesForecast } from "@/lib/dashboard/forecast";
+import { computeOutletComparison } from "@/lib/dashboard/outlet-compare";
 import { useDashboardStore, computePresetRange } from "@/lib/dashboard/store";
 import {
   applyFilter,
@@ -195,7 +197,8 @@ export default function Home() {
   const [crossSheetKpi, setCrossSheetKpi] = useState<{
     kpi: import("@/lib/types").KpiSummary | null;
     dailyTrend: import("@/lib/types").TrendPoint[] | null;
-  }>({ kpi: null, dailyTrend: null });
+    outletAgg: import("@/lib/types").OutletAgg[] | null;
+  }>({ kpi: null, dailyTrend: null, outletAgg: null });
 
   // Toggle cross-sheet compare - fetch prev month data on enable
   const handleToggleCrossSheetCompare = useCallback(async () => {
@@ -204,7 +207,7 @@ export default function Home() {
     // If turning OFF
     if (crossSheetCompareEnabled) {
       store.setCrossSheetCompareEnabled(false);
-      setCrossSheetKpi({ kpi: null, dailyTrend: null });
+      setCrossSheetKpi({ kpi: null, dailyTrend: null, outletAgg: null });
       return;
     }
 
@@ -261,7 +264,11 @@ export default function Home() {
             prevDateEnd: body.prevDateRange.end,
             available: true,
           });
-          setCrossSheetKpi({ kpi: body.prevKpi, dailyTrend: body.prevDailyTrend });
+          setCrossSheetKpi({
+            kpi: body.prevKpi,
+            dailyTrend: body.prevDailyTrend,
+            outletAgg: body.prevOutletAgg ?? null,
+          });
         } else {
           setCrossSheetResultRef.current({
             prevSourceId: null,
@@ -271,7 +278,7 @@ export default function Home() {
             available: false,
             unavailableReason: body.unavailableReason,
           });
-          setCrossSheetKpi({ kpi: null, dailyTrend: null });
+          setCrossSheetKpi({ kpi: null, dailyTrend: null, outletAgg: null });
         }
       } catch {
         if (!cancelled) setCrossSheetLoadingRef.current(false);
@@ -383,6 +390,27 @@ export default function Home() {
   const salesForecast = useMemo(() => {
     return calculateSalesForecast(dailyTrend, prevMonthRevenueForForecast);
   }, [dailyTrend, prevMonthRevenueForForecast]);
+
+  // Previous outlet aggregation for comparison & declining outlets detection
+  const effectivePrevOutletAgg = useMemo(() => {
+    if (crossSheetCompareEnabled && crossSheetAvailable && crossSheetKpi.outletAgg) {
+      return crossSheetKpi.outletAgg;
+    }
+    if (compareEnabled && prevRecords.length > 0) {
+      return computeOutletAgg(prevRecords);
+    }
+    return null;
+  }, [
+    crossSheetCompareEnabled,
+    crossSheetAvailable,
+    crossSheetKpi.outletAgg,
+    compareEnabled,
+    prevRecords,
+  ]);
+
+  const outletComparison = useMemo(() => {
+    return computeOutletComparison(outletAgg, effectivePrevOutletAgg);
+  }, [outletAgg, effectivePrevOutletAgg]);
 
   // Heatmap data
   const topOutletNames = useMemo(
@@ -949,14 +977,37 @@ export default function Home() {
           <OutletHeatmap data={heatmap} dateList={dateList} />
         </SectionCard>
 
+        {/* Declining Outlets (vs Bulan Lalu) */}
+        <DecliningOutletsCard
+          comparison={outletComparison}
+          isCompareActive={Boolean(
+            (crossSheetCompareEnabled && crossSheetAvailable) || compareEnabled,
+          )}
+          isLoading={crossSheetLoading}
+          prevMonthLabel={crossSheetPrevSourceLabel}
+          currentDateRange={{ start: dateStart, end: dateEnd }}
+          prevDateRange={{
+            start: crossSheetPrevDateStart || prevDateStart || "",
+            end: crossSheetPrevDateEnd || prevDateEnd || "",
+          }}
+          onEnableCompare={handleToggleCrossSheetCompare}
+        />
+
         {/* Outlet ranking + Item ranking */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <SectionCard
             title="Ranking Outlet"
-            subtitle="Klik header kolom untuk mengurutkan"
+            subtitle={
+              effectivePrevOutletAgg
+                ? "Bandingkan performa tiap outlet vs bulan lalu"
+                : "Klik header kolom untuk mengurutkan"
+            }
             icon={<Table2 className="h-4 w-4" />}
           >
-            <OutletRankingTable data={outletAgg} />
+            <OutletRankingTable
+              data={outletAgg}
+              prevData={effectivePrevOutletAgg}
+            />
           </SectionCard>
 
           <SectionCard

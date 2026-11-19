@@ -7,9 +7,10 @@ import {
   applyFilter,
   computeKpi,
   computeDailyTrend,
+  computeOutletAgg,
   type FilterState,
 } from "@/lib/dashboard/aggregate";
-import type { KpiSummary, TrendPoint } from "@/lib/types";
+import type { KpiSummary, TrendPoint, OutletAgg } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -35,6 +36,7 @@ export interface CompareResponse {
   prevDateRange: { start: string; end: string };
   prevKpi?: KpiSummary;
   prevDailyTrend?: TrendPoint[];
+  prevOutletAgg?: OutletAgg[];
   recordCount: number;
 }
 
@@ -82,6 +84,7 @@ export async function POST(request: Request) {
     const filtered = applyFilter(result.prevRecords, filterState);
     const prevKpi = computeKpi(filtered);
     const prevDailyTrend = computeDailyTrend(filtered);
+    const prevOutletAgg = computeOutletAgg(filtered);
 
     const response: CompareResponse = {
       available: true,
@@ -98,6 +101,7 @@ export async function POST(request: Request) {
       prevDateRange: result.prevDateRange,
       prevKpi,
       prevDailyTrend,
+      prevOutletAgg,
       recordCount: filtered.length,
     };
     return NextResponse.json(response);
