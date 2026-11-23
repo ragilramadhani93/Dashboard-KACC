@@ -40,6 +40,7 @@ export interface DailyOutletComparison {
 export interface DailyComparisonResult {
   targetDate: string;
   compareDate: string;
+  selectedOutlet?: string | null;
   targetKpi: {
     revenue: number;
     transactions: number;
@@ -154,9 +155,15 @@ export function computeDailyComparison(
   allRecords: TransactionRecord[],
   targetDate: string,
   compareDate: string,
+  selectedOutlet?: string | null,
 ): DailyComparisonResult {
-  const targetRecords = getRecordsForDate(allRecords, targetDate);
-  const compareRecords = getRecordsForDate(allRecords, compareDate);
+  const filterOutlet = selectedOutlet && selectedOutlet !== "ALL" ? selectedOutlet : null;
+  const filteredAll = filterOutlet
+    ? allRecords.filter((r) => r.outlet === filterOutlet)
+    : allRecords;
+
+  const targetRecords = getRecordsForDate(filteredAll, targetDate);
+  const compareRecords = getRecordsForDate(filteredAll, compareDate);
 
   const tKpi = computeSingleDayKpi(targetRecords);
   const cKpi = computeSingleDayKpi(compareRecords);
@@ -415,10 +422,11 @@ export function computeDailyComparison(
   const totalOutletDecliningRevenue = decliningOutlets.reduce((s, o) => s + Math.abs(o.diffRevenue), 0);
 
   // Generate actionable summary points
+  const outletPrefix = filterOutlet ? `[${cleanOutletName(filterOutlet)}] ` : "";
   const summaryPoints: string[] = [];
   if (direction === "down") {
     summaryPoints.push(
-      `Omzet harian turun sebesar -${formatRupiah(Math.abs(diffRevenue))} (${formatPct(Math.abs(pctRevenueChange))}) dibanding hari kemarin (${formatRupiah(tKpi.revenue)} vs ${formatRupiah(cKpi.revenue)}).`,
+      `${outletPrefix}Omzet harian turun sebesar -${formatRupiah(Math.abs(diffRevenue))} (${formatPct(Math.abs(pctRevenueChange))}) dibanding hari kemarin (${formatRupiah(tKpi.revenue)} vs ${formatRupiah(cKpi.revenue)}).`,
     );
     summaryPoints.push(explanation);
     if (topDropHour) {
@@ -435,7 +443,7 @@ export function computeDailyComparison(
         `Terdapat ${zeroTodayItems.length} menu yang terjual kemarin namun mencatat 0 penjualan hari ini (indikasi kuat stock-out / bahan habis).`,
       );
     }
-    if (decliningOutlets.length > 0) {
+    if (!filterOutlet && decliningOutlets.length > 0) {
       const topOutlet = cleanOutletName(decliningOutlets[0].outlet);
       summaryPoints.push(
         `Outlet dengan kontraksi terbesar adalah ${topOutlet} dengan penurunan omzet -${formatRupiah(Math.abs(decliningOutlets[0].diffRevenue))} (-${Math.abs(decliningOutlets[0].diffTxn)} transaksi).`,
@@ -443,7 +451,7 @@ export function computeDailyComparison(
     }
   } else if (direction === "up") {
     summaryPoints.push(
-      `Omzet harian tumbuh sebesar +${formatRupiah(diffRevenue)} (+${formatPct(pctRevenueChange)}) dibanding hari kemarin.`,
+      `${outletPrefix}Omzet harian tumbuh sebesar +${formatRupiah(diffRevenue)} (+${formatPct(pctRevenueChange)}) dibanding hari kemarin.`,
     );
     summaryPoints.push(explanation);
     if (growingItems.length > 0) {
@@ -451,7 +459,7 @@ export function computeDailyComparison(
       summaryPoints.push(`Pendorong pertumbuhan utama berasal dari menu: ${top3Items}.`);
     }
   } else {
-    summaryPoints.push("Performa penjualan hari ini stabil dan konsisten dengan hari kemarin.");
+    summaryPoints.push(`${outletPrefix}Performa penjualan hari ini stabil dan konsisten dengan hari kemarin.`);
   }
 
   // Recommendations
@@ -459,7 +467,7 @@ export function computeDailyComparison(
   if (direction === "down") {
     if (zeroTodayItems.length > 0) {
       recommendations.push(
-        `Segera lakukan pengecekan fisik stok bahan baku untuk ${zeroTodayItems.slice(0, 2).map((i) => i.item).join(" dan ")} di outlet yang terdampak.`,
+        `Segera lakukan pengecekan fisik stok bahan baku untuk ${zeroTodayItems.slice(0, 2).map((i) => i.item).join(" dan ")} di ${filterOutlet ? cleanOutletName(filterOutlet) : "outlet yang terdampak"}.`,
       );
     }
     if (primaryDriver === "traffic" && topDropHour) {
@@ -472,7 +480,7 @@ export function computeDailyComparison(
         "Terapkan briefing kasir untuk aktif menawarkan add-on pastry / snack (cross-selling) guna mendongkrak kembali nilai AOV.",
       );
     }
-    if (decliningOutlets.length > 0) {
+    if (!filterOutlet && decliningOutlets.length > 0) {
       recommendations.push(
         `Lakukan koordinasi dengan store supervisor di ${cleanOutletName(decliningOutlets[0].outlet)} untuk mengevaluasi penyebab penurunan penjualan hari ini.`,
       );
@@ -485,6 +493,7 @@ export function computeDailyComparison(
   return {
     targetDate,
     compareDate,
+    selectedOutlet: filterOutlet,
     targetKpi: {
       revenue: tKpi.revenue,
       transactions: tKpi.transactions,

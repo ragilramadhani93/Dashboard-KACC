@@ -45,6 +45,8 @@ interface DailyComparisonDialogProps {
   onOpenChange: (open: boolean) => void;
   records: TransactionRecord[];
   availableDates: string[]; // sorted ascending e.g. ["2026-11-01", ..., "2026-11-12"]
+  availableOutlets?: string[];
+  initialOutlet?: string;
 }
 
 type TabKey = "declining_items" | "growing_items" | "outlets" | "hourly" | "summary";
@@ -55,6 +57,8 @@ export function DailyComparisonDialog({
   onOpenChange,
   records,
   availableDates,
+  availableOutlets,
+  initialOutlet,
 }: DailyComparisonDialogProps) {
   // Default target date: latest date in availableDates
   const defaultTargetDate = availableDates.length > 0 ? availableDates[availableDates.length - 1] : "";
@@ -63,6 +67,7 @@ export function DailyComparisonDialog({
 
   const [targetDate, setTargetDate] = useState<string>(defaultTargetDate);
   const [compareDate, setCompareDate] = useState<string>(defaultCompareDate);
+  const [selectedOutlet, setSelectedOutlet] = useState<string>(initialOutlet || "ALL");
   const [activeTab, setActiveTab] = useState<TabKey>("declining_items");
   const [itemQuery, setItemQuery] = useState("");
   const [itemSortKey, setItemSortKey] = useState<ItemSortKey>("diffRevenue");
@@ -76,11 +81,21 @@ export function DailyComparisonDialog({
     ? compareDate
     : defaultCompareDate;
 
+  // Build sorted list of all available outlets
+  const outletList = useMemo(() => {
+    if (availableOutlets && availableOutlets.length > 0) return availableOutlets;
+    const set = new Set<string>();
+    for (const r of records) {
+      if (r.outlet) set.add(r.outlet);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "id"));
+  }, [availableOutlets, records]);
+
   // Compute daily comparison
   const comparison: DailyComparisonResult | null = useMemo(() => {
     if (!effectiveTargetDate || !effectiveCompareDate || records.length === 0) return null;
-    return computeDailyComparison(records, effectiveTargetDate, effectiveCompareDate);
-  }, [records, effectiveTargetDate, effectiveCompareDate]);
+    return computeDailyComparison(records, effectiveTargetDate, effectiveCompareDate, selectedOutlet);
+  }, [records, effectiveTargetDate, effectiveCompareDate, selectedOutlet]);
 
   // Quick helper to select target date and automatically set compare date to yesterday (T-1)
   const handleSelectTargetDate = (newTarget: string) => {
@@ -219,9 +234,58 @@ export function DailyComparisonDialog({
                   Bandingkan vs Minggu Lalu (T-7)
                 </button>
               )}
+
+              {/* Outlet Filter Dropdown */}
+              <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5">
+                <Store className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-muted-foreground font-medium">Outlet:</span>
+                <select
+                  value={selectedOutlet}
+                  onChange={(e) => setSelectedOutlet(e.target.value)}
+                  className="bg-transparent font-semibold text-foreground focus:outline-none cursor-pointer max-w-[210px] truncate"
+                >
+                  <option value="ALL" className="bg-popover text-popover-foreground">
+                    Semua Outlet ({outletList.length})
+                  </option>
+                  {outletList.map((o) => (
+                    <option key={o} value={o} className="bg-popover text-popover-foreground">
+                      {cleanOutletName(o)}
+                    </option>
+                  ))}
+                </select>
+                {selectedOutlet !== "ALL" && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOutlet("ALL")}
+                    className="ml-0.5 rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                    title="Reset ke Semua Outlet"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </DialogHeader>
+
+        {/* Active Outlet Filter Banner */}
+        {selectedOutlet !== "ALL" && (
+          <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs">
+            <div className="flex items-center gap-2">
+              <Store className="h-4 w-4 text-primary shrink-0" />
+              <span>
+                Menampilkan analisa harian khusus untuk outlet: <strong className="text-foreground">{cleanOutletName(selectedOutlet)}</strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedOutlet("ALL")}
+              className="font-medium text-primary hover:underline text-xs cursor-pointer"
+            >
+              Tampilkan Semua Outlet
+            </button>
+          </div>
+        )}
 
         {/* Section 1: KPI Comparison Grid */}
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 pt-2">

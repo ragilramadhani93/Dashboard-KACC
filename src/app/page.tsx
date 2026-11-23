@@ -1180,6 +1180,8 @@ export default function Home() {
         onOpenChange={setDailyComparisonOpen}
         records={allRecords}
         availableDates={allDatasetDates}
+        availableOutlets={data.meta.outlets}
+        initialOutlet={store.outlets.length === 1 ? store.outlets[0] : "ALL"}
       />
     </main>
   );
