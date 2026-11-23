@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   TrendingUp,
+  TrendingDown,
+  CalendarCheck,
   Store,
   CreditCard,
   Clock,
@@ -36,10 +38,12 @@ import { SheetManagerModal } from "@/components/dashboard/SheetManagerModal";
 import { HourlyDrilldownDialog } from "@/components/dashboard/HourlyDrilldownDialog";
 import { StockoutAnalysisDialog } from "@/components/dashboard/StockoutAnalysisDialog";
 import { SnackAnalysisDialog } from "@/components/dashboard/SnackAnalysisDialog";
+import { DailyComparisonDialog } from "@/components/dashboard/DailyComparisonDialog";
 import { SalesForecastCard } from "@/components/dashboard/SalesForecastCard";
 import { DecliningOutletsCard } from "@/components/dashboard/DecliningOutletsCard";
 import { calculateSalesForecast } from "@/lib/dashboard/forecast";
 import { computeOutletComparison } from "@/lib/dashboard/outlet-compare";
+import { computeDailyComparison } from "@/lib/dashboard/daily-comparison";
 import { useDashboardStore, computePresetRange } from "@/lib/dashboard/store";
 import {
   applyFilter,
@@ -81,6 +85,9 @@ export default function Home() {
 
   // Snack analysis dialog state
   const [snackOpen, setSnackOpen] = useState(false);
+
+  // Daily comparison analysis dialog state
+  const [dailyComparisonOpen, setDailyComparisonOpen] = useState(false);
 
   // Apply initial preset based on actual data range
   const dataRange = data?.meta.dateRange ?? { start: "", end: "" };
@@ -425,6 +432,24 @@ export default function Home() {
     () => computeHeatmap(filteredRecords, topOutletNames, dateList),
     [filteredRecords, topOutletNames, dateList],
   );
+
+  // All dates present in full dataset for daily comparison selection
+  const allDatasetDates = useMemo(() => {
+    if (!allRecords || allRecords.length === 0) return [];
+    const set = new Set<string>();
+    for (const r of allRecords) {
+      if (r.date && r.status === "Close") set.add(r.date);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [allRecords]);
+
+  // Quick DoD preview for the latest 2 days
+  const quickDodComparison = useMemo(() => {
+    if (allDatasetDates.length < 2) return null;
+    const latest = allDatasetDates[allDatasetDates.length - 1];
+    const prev = allDatasetDates[allDatasetDates.length - 2];
+    return computeDailyComparison(allRecords, latest, prev);
+  }, [allRecords, allDatasetDates]);
 
   // ----- Export PDF handler -----
   const handleExportPdf = useCallback(async () => {
@@ -838,7 +863,65 @@ export default function Home() {
         </div>
 
         {/* Operational Deep-Dive Modules */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <SectionCard
+            title="Analisa Harian (DoD)"
+            subtitle="Bandingkan hari ini vs kemarin, diagnosa kenapa turun, dan menu terdampak"
+            icon={<CalendarCheck className="h-4 w-4" />}
+            action={
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-10 gap-1.5 bg-primary text-xs text-primary-foreground hover:bg-primary/90"
+                onClick={() => setDailyComparisonOpen(true)}
+                disabled={allDatasetDates.length < 2}
+              >
+                <CalendarCheck aria-hidden="true" className="h-3.5 w-3.5" />
+                Buka Analisa
+              </Button>
+            }
+          >
+            <div className="space-y-2.5">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Evaluasi otomatis performa harian: dekomposisi penurunan omzet (traffic vs AOV), jam paling anjlok, serta menu yang drop.
+              </p>
+              {quickDodComparison ? (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "font-semibold",
+                      quickDodComparison.deltas.revenue < 0
+                        ? "border-status-danger/35 bg-status-danger/10 text-status-danger"
+                        : "border-status-success/35 bg-status-success/10 text-status-success",
+                    )}
+                  >
+                    {quickDodComparison.targetDate.slice(5)}: {quickDodComparison.deltas.revenue < 0 ? "-" : "+"}{formatRupiah(Math.abs(quickDodComparison.deltas.revenue))} ({formatPct(quickDodComparison.deltas.revenuePct)})
+                  </Badge>
+                  <Badge variant="outline" className="font-normal">
+                    <span className="text-muted-foreground">Pemicu:</span>
+                    <span className="ml-1 font-medium text-foreground">
+                      {quickDodComparison.rootCause.primaryDriver === "traffic"
+                        ? `Traffic (${quickDodComparison.deltas.transactions} txn)`
+                        : quickDodComparison.rootCause.primaryDriver === "basket_size"
+                          ? "AOV"
+                          : quickDodComparison.rootCause.primaryDriver === "closed_outlets"
+                            ? "Outlet Tutup"
+                            : "Seimbang"}
+                    </span>
+                  </Badge>
+                  {quickDodComparison.items.declining.length > 0 && (
+                    <Badge variant="secondary" className="font-normal truncate max-w-full">
+                      Top Drop: <span className="ml-1 font-medium text-foreground">{quickDodComparison.items.declining[0].item}</span>
+                    </Badge>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">Membutuhkan minimal 2 hari data transaksi.</div>
+              )}
+            </div>
+          </SectionCard>
+
           <SectionCard
             title="Analisa Indikasi Stock-Out"
             subtitle="Bandingkan qty menu vs bulan lalu untuk deteksi kehabisan stok dan estimasi loss"
@@ -1088,6 +1171,14 @@ export default function Home() {
           itemCategories: store.itemCategories,
           menuTypes: store.menuTypes,
         }}
+      />
+
+      {/* Daily comparison dialog - Hari ini vs kemarin, kenapa turun & menu drop */}
+      <DailyComparisonDialog
+        open={dailyComparisonOpen}
+        onOpenChange={setDailyComparisonOpen}
+        records={allRecords}
+        availableDates={allDatasetDates}
       />
     </main>
   );
