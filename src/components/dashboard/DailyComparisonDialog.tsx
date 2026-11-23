@@ -136,7 +136,7 @@ export function DailyComparisonDialog({
   if (!comparison) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl bg-card">
+        <DialogContent className="w-[96vw] sm:max-w-2xl bg-card">
           <DialogHeader>
             <DialogTitle>Analisa Penjualan Harian</DialogTitle>
             <DialogDescription>Data tidak mencukupi untuk membandingkan penjualan harian.</DialogDescription>
@@ -151,7 +151,7 @@ export function DailyComparisonDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[95vw] max-w-6xl overflow-y-auto bg-card p-4 sm:p-6 text-foreground">
+      <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl overflow-y-auto bg-card p-4 sm:p-6 text-foreground">
         <DialogHeader className="space-y-1.5 border-b border-border/70 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
